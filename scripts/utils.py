@@ -1,3 +1,6 @@
+from sklearn.metrics.pairwise import haversine_distances
+import numpy as np
+
 # homegrown arctan function to make sure that, for a given x and y, the
 # the angle corresponds to the correct half of the unit circle
 def arctan(x, y):

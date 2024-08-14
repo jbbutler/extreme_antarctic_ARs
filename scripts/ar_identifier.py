@@ -14,8 +14,6 @@ from utils import arctan
 from utils import average_angle
 from utils import retrieve_neighbors
 
-import pygmt
-
 # load up the AR catalogs
 curwd = os.getcwd()
 catalog_paths = str(Path(curwd).parents[0]) + '/data/ar_catalogs/*.nc'
@@ -33,7 +31,13 @@ catalog_years = np.unique(catalog.time.dt.year)
 
 for year in catalog_years:
 
-    catalog_subset = catalog.sel(time=(catalog.time.dt.year==year))
+    print(f'starting {year}')
+
+    catalog_subset = catalog.sel(time=(catalog.time.dt.year==year)).ar_binary_tag
+
+    # get rid of all time steps for which there is no AR present
+    is_ar_time = catalog_subset.any(dim = ['lat', 'lon'])
+    catalog_subset = catalog_subset.sel(time=is_ar_time)
     # times to loop through to cluster
     times = catalog_subset.time.to_numpy()
     # instantiate empty list with each index corresponding to a time step
@@ -108,7 +112,12 @@ for year in catalog_years:
     # hyperparams to ST-DBSCAN algorithm
     min_pts = 5
     noise_label = 7777777
-    cluster_label = 0
+
+    # flag for carrying on cluster labelling across years
+    if year == 1980:
+        cluster_label = 0
+    else:
+        cluster_label = last_label + 1
 
     # same spatial scale as the spatial clustering
     synoptic_scale = (10**3)/2
@@ -154,6 +163,9 @@ for year in catalog_years:
     # add cluster membership column back to original df
     cluster_infos_df['cluster'] = cluster_assignments
 
+    # save the last label to carry on labelling for following year
+    last_label = cluster_label
+
     # remove noise clusters
     # noise cluster meaning they are one-off ARs
     cluster_infos_df = cluster_infos_df[cluster_infos_df['cluster'] != noise_label]
@@ -179,8 +191,9 @@ for year in catalog_years:
     cluster_infos_df.to_pickle(str(Path(curwd).parents[0]) + f'/output/dataframes/cluster_infos_{year}.pkl')
 
     # also convert to one-hot encoded raster format like Jonathan's catalogs
-    da_lst = [None]*times.shape[0]
-    for i in range(times.shape[0]):
+    times = np.unique(times)
+    da_lst = [None]*len(times)
+    for i in range(len(times)):
         single_df = cluster_infos_df[cluster_infos_df.time == times[i]]
         n_storms = single_df.shape[0]
         storm_df = [None]*n_storms
@@ -205,3 +218,5 @@ for year in catalog_years:
     year_da = year_da.fillna(0)
     year_da = year_da.chunk('auto')
     year_da.to_netcdf(path=str(Path(curwd).parents[0]) + f'/output/datarrays/{year}_clusters.nc')
+
+    print(f'ending {year}')
