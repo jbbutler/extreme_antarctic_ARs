@@ -1,4 +1,5 @@
 import os
+import pdb
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -31,7 +32,7 @@ catalog_years = np.unique(catalog.time.dt.year)
 
 for year in catalog_years:
 
-    print(f'starting {year}')
+    print(f'Starting year: {year}')
 
     catalog_subset = catalog.sel(time=(catalog.time.dt.year==year)).ar_binary_tag
 
@@ -168,7 +169,7 @@ for year in catalog_years:
 
     # remove noise clusters
     # noise cluster meaning they are one-off ARs
-    cluster_infos_df = cluster_infos_df[cluster_infos_df['cluster'] != noise_label]
+    # cluster_infos_df = cluster_infos_df[cluster_infos_df['cluster'] != noise_label]
 
     # get ais points
     ais_mask_lats = ais_mask.lat[np.where(ais_mask.to_numpy())[0]].to_numpy()
@@ -177,8 +178,8 @@ for year in catalog_years:
 
     # determine which steps are landfalling and which are not, given a row of dataframe
     def is_landfalling(row):
-        lats = np.array(np.degrees(row.lats))
-        lons = np.array(np.degrees(row.lons))
+        lats = np.array(row.lats)
+        lons = np.array(row.lons)
 
         storm_pts = set(zip(lats, lons))
 
@@ -188,7 +189,7 @@ for year in catalog_years:
     cluster_infos_df['is_landfalling'] = cluster_infos_df.apply(is_landfalling, axis=1)
 
     # save the dataframe format
-    cluster_infos_df.to_pickle(str(Path(curwd).parents[0]) + f'/output/dataframes/cluster_infos_{year}.pkl')
+    cluster_infos_df.to_csv(f'/scratch/users/butlerj/extreme_antarctic_ars/dataframes/cluster_infos_{year}.csv')
 
     # also convert to one-hot encoded raster format like Jonathan's catalogs
     times = np.unique(times)
@@ -205,7 +206,7 @@ for year in catalog_years:
             points = pd.DataFrame({'lat':lats, 'lon':lons})
             points['cluster'] = single_df['cluster'].iloc[j]
             storm_df[j] = points
-
+	    
         time_df = pd.concat(storm_df, axis=0)
         raster_day = time_df.set_index(['lat', 'lon']).to_xarray()
         da_lst[i] = raster_day
@@ -216,7 +217,8 @@ for year in catalog_years:
     year_da = year_da.reindex(lat=catalog_subset.lat, lon=catalog_subset.lon, time=augmented_times)
 
     year_da = year_da.fillna(0)
+    year_da = year_da.cluster.astype(np.int16)
     year_da = year_da.chunk('auto')
-    year_da.to_netcdf(path=str(Path(curwd).parents[0]) + f'/output/datarrays/{year}_clusters.nc')
+    year_da.to_netcdf(f'/scratch/users/butlerj/extreme_antarctic_ars/datarrays/{year}_clusters.nc')
 
     print(f'ending {year}')
