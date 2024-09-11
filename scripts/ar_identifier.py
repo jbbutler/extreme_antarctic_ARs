@@ -20,6 +20,8 @@ curwd = os.getcwd()
 catalog_paths = str(Path(curwd).parents[0]) + '/data/ar_catalogs/*.nc'
 full_catalog = xr.open_mfdataset(catalog_paths)
 
+full_catalog = full_catalog.sel(time=full_catalog.time.dt.year.isin([1980]))
+
 # Load up the AIS mask
 mask_path = str(Path(curwd).parents[0]) + '/data/antarctic_masks/AIS_Full_basins_Zwally_MERRA2grid_new.nc'
 full_ais_mask = xr.open_dataset(mask_path).Zwallybasins > 0

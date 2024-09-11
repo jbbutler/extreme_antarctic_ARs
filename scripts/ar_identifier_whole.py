@@ -10,10 +10,12 @@ import matplotlib.pyplot as plt
 from sklearn.cluster import DBSCAN
 from sklearn.metrics.pairwise import haversine_distances
 import math
+from tqdm import tqdm
 
 from utils import arctan
 from utils import average_angle
 from utils import retrieve_neighbors
+from utils import 
 
 # load up the AR catalogs
 curwd = os.getcwd()
@@ -41,7 +43,9 @@ n_rep_pts = 10
 
 ########### SPATIAL CLUSTERING ###########
 
-for i in range(len(times)):
+print('Beginning spatial clustering step.')
+
+for i in tqdm(range(len(times))):
     
     time_slice = catalog_subset.sel(time = times[i])
     # find lats/lons of AR points in this time step
@@ -85,6 +89,8 @@ ar_pt_df['cluster'] = np.full(cluster_infos_df.shape[0], np.nan)
 
 ########### SPATIOTEMPORAL CLUSTERING ###########
 
+print('Beginning spatiotemporal clustering step.')
+
 # loop through the dataframe made and unpack all of the representative points sampled for each cluster
 # resulting dataframe will have rows consisting of representative storm point
 # this is basically getting the data in the right format to do the ST-DBSCAN step
@@ -106,11 +112,7 @@ unpacked_df = pd.DataFrame({'cluster':np.full(len(unpacked_indices), np.nan), 's
 min_pts = 5
 noise_label = -1
 
-# flag for carrying on cluster labelling across years
-if year == 1980:
-    cluster_label = 0
-else:
-    cluster_label = last_label + 1
+cluster_label = 0
 
 # same spatial scale as the spatial clustering
 synoptic_scale = (10**3)/2
@@ -156,8 +158,7 @@ cluster_assignments = ar_pt_df.groupby('space_cluster')['cluster'].apply(lambda 
 # add cluster membership column back to original df
 cluster_infos_df['cluster'] = cluster_assignments
 
-# save the last label to carry on labelling for following year
-last_label = cluster_label
+print('Beginning post-processing and saving.')
 
 # remove noise clusters
 # noise cluster meaning they are one-off ARs
@@ -184,9 +185,10 @@ cluster_infos_df['is_landfalling'] = cluster_infos_df.apply(is_landfalling, axis
 catalog_years = np.unique(catalog_subset.time.dt.year)
 
 for year in catalog_years:
+    print(f'beginning saving {year}')
     dataframe_year = cluster_infos_df[cluster_infos_df.time.dt.year == year]
     # save the dataframe format
-    dataframe_year.to_csv(f'/scratch/users/butlerj/extreme_antarctic_ars/dataframes/storm_df_{year}.csv')
+    dataframe_year.to_csv(f'/scratch/users/butlerj/extreme_antarctic_ars/dataframes/{year}_storm_df.csv')
 
     # also convert to one-hot encoded raster format like Jonathan's catalogs
     year_times = catalog_subset.sel(time=(catalog_subset.time.dt.year == year)).time.to_numpy()
@@ -216,6 +218,4 @@ for year in catalog_years:
     year_da = year_da.fillna(0)
     year_da = year_da.cluster.astype(np.int16)
     year_da = year_da.chunk('auto')
-    year_da.to_netcdf(f'/scratch/users/butlerj/extreme_antarctic_ars/datarrays/{year}_clusters.nc')
-
-    print(f'ending {year}')
+    year_da.to_netcdf(f'/scratch/users/butlerj/extreme_antarctic_ars/datarrays/{year}_storm_da.nc')
