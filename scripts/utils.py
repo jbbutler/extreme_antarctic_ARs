@@ -138,12 +138,12 @@ def construct_dataframe(big_df, ais_pts):
 
     return df
 
-def construct_dataarray(ar_catalog_da, big_df):
-    # ar_catalog_da is Jonathan's catalog, with space and ar_times already sliced
+def construct_dataarray(big_df, coord_dict):
+    # coord_dict is dictionary of lats, lons: the coordinates you would like to set for the resulting data array
     # big_df is the dataframe output of the clustering (each row is AR at particular point in time)
 
     # also convert to one-hot encoded raster format like Jonathan's catalogs
-    times = ar_catalog_da.time.to_numpy()
+    times = np.sort(big_df.time.unique())
     da_lst = [None]*len(times)
     for i in range(len(times)):
         single_df = big_df[big_df.time == times[i]]
@@ -166,14 +166,14 @@ def construct_dataarray(ar_catalog_da, big_df):
     da = da.assign_coords(time = times)
 
     # fill in times for which there was no AR originally
-    years = np.unique(ar_catalog_da.time.dt.year.to_numpy())
+    years = big_df.time.dt.year.unique()
     augmented_times_tot = [None]*len(years)
     for i, year in enumerate(years):
         augmented_times_tot[i] = np.array(pd.date_range(f'{year}-01-01T00:00:00.000000000', f'{year}-12-31T21:00:00.000000000', freq='3h'))
     
     augmented_times = np.concatenate(augmented_times_tot)
 
-    da = da.reindex(lat=ar_catalog_da.lat, lon=ar_catalog_da.lon, time=augmented_times)
+    da = da.reindex(lat=coord_dict['lats'], lon=coord_dict['lons'], time=augmented_times)
 
     da = da.fillna(0)
     da = da.cluster.astype(np.int16)

@@ -89,6 +89,7 @@ for key in combos.keys():
         obj_subset = cluster_infos_df[['cluster', 'lats', 'lons', 'time']]
         obj_subset = obj_subset[obj_subset['cluster'] != -1]
         
+        ####************bug? should be obj_subset?************
         dataframe = utils.construct_dataframe(cluster_infos_df, ais_pts)
         dataframe.to_pickle(par_dir + '/storm_df.pkl')
         da = utils.construct_dataarray(catalog_subset, cluster_infos_df)
