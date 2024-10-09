@@ -79,7 +79,7 @@ def construct_da(cluster_df):
     
         lats = cluster_df.iloc[i].lats
         lons = cluster_df.iloc[i].lons
-        storm_df = pd.DataFrame({'lats': lats, 'lons': lons})
+        storm_df = pd.DataFrame({'lat': lats, 'lon': lons})
         storm_df['time'] = cluster_df.iloc[i].time
     
         dfs[i] = storm_df
@@ -87,7 +87,7 @@ def construct_da(cluster_df):
     storm_df = pd.concat(dfs, axis=0)
     storm_df['clust'] = 1
 
-    storm_df = storm_df.set_index(['time', 'lats', 'lons'])
+    storm_df = storm_df.set_index(['time', 'lat', 'lon'])
     storm_da = storm_df.to_xarray()
     storm_da = storm_da.fillna(0).astype(np.int8).clust
     
