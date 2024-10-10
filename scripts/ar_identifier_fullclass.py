@@ -59,7 +59,7 @@ for year in catalog_years:
     dataframe_year = obj_subset[obj_subset.time.dt.year == year]
     # construct and save the dataframe for that year
     dataframe = utils.construct_dataframe(dataframe_year, ais_pts)
-    dataframe.to_pickle(f'/scratch/users/butlerj/extreme_antarctic_ars/dataframes/{year}_storm_df.pkl')
+    dataframe.to_hdf(f'/scratch/users/butlerj/extreme_antarctic_ars/dataframes/{year}_storm_df.h5', key='df')
 
     # construct and save the one-hot-encoded data array format for that year
     coord_dict = {'lats': catalog_subset.lat, 'lons': catalog_subset.lon}
