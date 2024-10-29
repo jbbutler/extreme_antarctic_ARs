@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import os
+import matplotlib.pyplot as plt
 from pathlib import Path
 from io import BytesIO
 import base64
@@ -183,7 +184,7 @@ def construct_dataarray(big_df, coord_dict):
 
     return da
 
-def constructThumbnail(storm):
+def construct_thumbnail(storm):
 
     rep_time = storm.sel(time=storm.sum(dim=['lat', 'lon']).idxmax())
     fig, ax = plt.subplots(1)
@@ -204,8 +205,8 @@ def constructThumbnail(storm):
     return imgstr
 
 
-def displayCatalog(catalog_df, nrows=None):
+def display_catalog(catalog_df, nrows=None):
     if nrows:
-        return catalog_df.head(nrows).style.format({'data_array': lambda x: constructThumbnail(x)}).format_index(precision=0)
+        return catalog_df.head(nrows).style.format({'data_array': lambda x: construct_thumbnail(x)}).format_index(precision=0)
     else:
-        return catalog_df.style.format({'data_array': constructThumbnail}).format_index(precision=0)
+        return catalog_df.style.format({'data_array': construct_thumbnail}).format_index(precision=0)
