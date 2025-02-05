@@ -1,3 +1,6 @@
+# Script to run the clustering algorithm for the year 2022, to be used with
+# the accompanying Jupyter Book for my AGU24 presentation
+
 import os
 from pathlib import Path
 import numpy as np
