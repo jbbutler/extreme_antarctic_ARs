@@ -58,7 +58,7 @@ def parallelized_code(i):
         name = name + str(tup[0]) + '_' + str(tup[1])
 
     name_dir = save_dir + name + '/'    
-    Path(name_dir).mkdir(parents=True, exist_ok=True)
+    #Path(name_dir).mkdir(parents=True, exist_ok=True)
         
     # instantiating the clustering object
     cluster_obj = st.ST_DBSCAN(par_dict['eps_space']*synoptic_scale/km_per_radian, 
