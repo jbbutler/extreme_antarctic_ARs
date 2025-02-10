@@ -21,30 +21,24 @@ from utils import is_landfalling
 import utils
 
 ######## SETUP ########
-scratch_dir = '/scratch/users/butlerj/extreme_antarctic_ars/'
-years = list(np.arange(1980, 2021, 5))
-catalog_subset = utils.load_catalogs(years)
+scratch_dir = '/pscratch/sd/j/jbbutler/extreme_antarctic_ars/'
+catalog_subset = utils.load_catalogs()
 ais_pts = utils.load_ais()
 
 ####### HYPERPARAM VARIATIONS #######
-
 baseline_par_dict = {'seed':12345,
-                     'eps_time':18,
+                     'eps_time':12,
                      'eps_space': 0.5,
                      'rep_pts': 10,
                      'min_pts': 5}
 
-par_perturbations_dict = {'seed': [43431, 64521, 51566, 13593, 45344],
-                         'eps_time': [12, 24],
-                         'eps_space': [0.25, 1],
-                         'rep_pts': [5, 15],
-                         'min_pts': [3, 10]}
+par_perturbations_dict = {'eps_time': [14, 16, 18]}
 
 # make the combos of parameters
 combos = {}
 combos['baseline'] = [baseline_par_dict]
 
-for key in baseline_par_dict.keys():
+for key in par_perturbations_dict.keys():
     
     n_combos = len(par_perturbations_dict[key])
     combos_lst = [None]*n_combos
@@ -61,12 +55,13 @@ km_per_radian = 6.371*(10**3)
 
 for key in combos.keys():
     
-    key_dir = scratch_dir + 'sensitivity_analysis/' + key + '/'
+    key_dir = scratch_dir + 'hyperparam_analysis/' + key + '/'
     Path(key_dir).mkdir(parents=True, exist_ok=True)
     
     par_dicts = combos[key]
     
     for par_dict in par_dicts:
+        print('starting a new set')
         
         if key == 'baseline':
             par_dir = key_dir
@@ -89,8 +84,8 @@ for key in combos.keys():
         obj_subset = cluster_infos_df[['cluster', 'lats', 'lons', 'time']]
         obj_subset = obj_subset[obj_subset['cluster'] != -1]
         
-        ####************bug? should be obj_subset?************
-        dataframe = utils.construct_dataframe(cluster_infos_df, ais_pts)
-        dataframe.to_pickle(par_dir + '/storm_df.pkl')
-        da = utils.construct_dataarray(catalog_subset, cluster_infos_df)
-        da.to_netcdf(par_dir + 'storm_da.nc')
+        dataframe = utils.construct_dataframe(obj_subset, ais_pts)
+        dataframe.to_hdf(par_dir + '/storm_df.h5', key='df')
+        coord_dict = {'lats': catalog_subset.lat, 'lons': catalog_subset.lon}
+        da = utils.construct_dataarray(coord_dict=coord_dict, big_df=obj_subset)
+        da.to_netcdf(par_dir + '/storm_da.nc')
