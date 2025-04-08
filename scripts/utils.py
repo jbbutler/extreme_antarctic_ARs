@@ -8,6 +8,49 @@ from pathlib import Path
 from io import BytesIO
 import base64
 
+def to_stormtime_format(catalog):
+    '''
+    Helper function which takes in the default catalog format (a DataFrame whose rows contain xArray DataArray masks for each storm)
+    and converts to a pandas DataFrame where rows consist of a storm at a particular time and columns contain point locations
+    associated with these storms. This data format facilitates making animations of ARs.
+
+    Inputs
+        catalog (pandas DataFrame): contains columns of the Data_Array masks
+
+    Outputs
+        stormtime_df (pandas DataFrame): DataFrame where a row consists of a particular AR at a particular time, and columns give lists of associated coordinates
+            as well as time
+    '''
+    # lists to collect storm labels, times, and corresponding storm lats and lons
+    labels = []
+    times = []
+    lats = []
+    lons = []
+
+    # for every storm
+    for index in catalog.index:
+
+        # grab that storm's times and binary mask
+        storm_da = catalog.loc[index].data_array
+        storm_times, storm_grid_lats, storm_grid_lons = storm_da.coords.values()
+        
+        # for each time step of that storm
+        for i in range(len(storm_times)):
+            # get lats and lons associated with that storm at that time
+            time_slice = storm_da.sel(time = storm_times[i])
+            inds = np.argwhere(time_slice.to_numpy() == 1)
+            storm_lats = storm_grid_lats[inds[:,0]].values
+            storm_lons = storm_grid_lons[inds[:,1]].values
+            # add the storm label, time, and lats and lons at that time to requisite lists
+            labels.append(index)
+            times.append(storm_times[i].values)
+            lats.append(storm_lats)
+            lons.append(storm_lons)
+
+    stormtime_df = pd.DataFrame({'label':labels, 'time':times, 'lat':lats, 'lon':lons})
+
+    return stormtime_df
+
 # homegrown arctan function to make sure that, for a given x and y, the
 # the angle corresponds to the correct half of the unit circle
 def arctan(x, y):
