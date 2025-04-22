@@ -8,20 +8,15 @@ import xarray as xr
 from tqdm import tqdm
 import dask
 
-home_dir = str(Path(os.getcwd()).parents[0])
+home_dir = str(Path(os.getcwd()).parents[1])
 scratch_path = '/pscratch/sd/j/jbbutler/'
-inst1_data_path = '/pscratch/sd/j/jbbutler/merra2_data/'
-tavg1_data_path = '/pscratch/sd/j/jbbutler/merra2_data_precip_ivt/'
+inst1_data_path = '/pscratch/sd/j/jbbutler/merra2_data_T2m_V10m_SLP_IWV/'
+tavg1_precip_data_path = '/pscratch/sd/j/jbbutler/merra2_data_precip_ivt/'
+tavg1_850hPa_wind_data_path = '/pscratch/sd/j/jbbutler/merra2_data_850hPa_wind/'
 
-# load up all of the dataframes by year, and then concatenate into one big one
-df_path = home_dir + '/data/ar_database/dataframes/'
-fnames = os.listdir(df_path)
-df_list = []
-
-for fname in fnames:
-    df_list.append(pd.read_hdf(df_path + fname))
-    
-dataframe = pd.concat(df_list)
+# load up all of the dataframes
+df_path = home_dir + '/data/ar_database/dataframe_eps12_eps500_minpts5_reppts20/storm_df.h5'
+dataframe = pd.read_hdf(df_path)
 
 landfalling_storms = dataframe[dataframe.is_landfalling]
 
@@ -138,6 +133,83 @@ def compute_min_SLP(storm_da, var_da, area_da, ais_da):
     min_slp = np.min(first_day[first_day > 0], initial=99999999)
 
     return min_slp
+
+def compute_max_SLPgrad(storm_da, var_da, area_da, ais_da):
+
+    storm_ais_mask = ais_da.sel(lat=storm_da.lat, lon=storm_da.lon).Zwallybasins
+    storm_ocean_mask = np.logical_not(storm_ais_mask)
+    storm_da_ais = storm_da.where(storm_ais_mask, 0)
+    storm_da_ocean = storm_da.where(storm_ocean_mask, 0)
+
+    var_da_subset = var_da.sel(lat=storm_da.lat, lon=storm_da.lon)
+    first_landfall = np.min(storm_da.time[storm_da_ais.any(dim=['lat', 'lon'])].values)
+
+    var_da_subset_landfall = var_da_subset.sel(time=first_landfall)
+    storm_da_ocean_landfall = storm_da_ocean.sel(time=first_landfall)
+
+    # return -1 if no points over the ocean at first landfalling time
+    if (storm_da_ocean_landfall == 0).all().values:
+        return -1
+    ## compute pressure gradient
+    # convert to radians
+    rads = var_da_subset_landfall.assign_coords(lon=np.radians(var_da_subset_landfall.lon), lat=np.radians(var_da_subset_landfall.lat))
+    # partials in the latitude direction (spherical coordinates)
+    r = 6378 # radius of Earth in km
+    lat_partials = rads.differentiate('lat')/r
+    # partials in the longitudinal direction (spherical coordinates)
+    lon_partials = rads.differentiate('lon')/(np.sin(rads.lat)*r)
+    
+    magnitude = np.sqrt(lon_partials**2 + lat_partials**2)
+    max_grad = np.max(magnitude.values*storm_da_ocean_landfall.values)
+
+    return max_grad
+
+def compute_max_landfalling_wind(storm_da, var_da, area_da, ais_da):
+
+    storm_ais_mask = ais_da.sel(lat=storm_da.lat, lon=storm_da.lon).Zwallybasins
+    storm_ocean_mask = np.logical_not(storm_ais_mask)
+    storm_da_ais = storm_da.where(storm_ais_mask, 0)
+    storm_da_ocean = storm_da.where(storm_ocean_mask, 0)
+    first_landfall = np.min(storm_da.time[storm_da_ais.any(dim=['lat', 'lon'])].values)
+
+    var_da_subset = var_da.sel(lat=storm_da.lat, lon=storm_da.lon)
+
+    storm_da_ocean_landfall = storm_da_ocean.sel(time=first_landfall)
+    if (storm_da_ocean_landfall == 0).all().values:
+        return -1
+    
+    first_day = (storm_da_ocean*var_da_subset).sel(time=first_landfall).values
+    # for some reason, 850hPa wind is null over the AIS. So, we take the max over all ocean
+    # points, ignoring an NaNs
+    max_wind = np.nanmax(first_day, initial=-999999)
+
+    return max_wind
+
+def compute_avg_landfalling_wind(storm_da, var_da, area_da, ais_da):
+
+    storm_ais_mask = ais_da.sel(lat=storm_da.lat, lon=storm_da.lon).Zwallybasins
+    storm_ocean_mask = np.logical_not(storm_ais_mask)
+    storm_da_ais = storm_da.where(storm_ais_mask, 0)
+    storm_da_ocean = storm_da.where(storm_ocean_mask, 0)
+    first_landfall = np.min(storm_da.time[storm_da_ais.any(dim=['lat', 'lon'])].values)
+
+    storm_da_ocean_landfall = storm_da_ocean.sel(time=first_landfall)
+    if (storm_da_ocean_landfall == 0).all().values:
+        return -1
+
+    var_da_subset = var_da.sel(lat=storm_da.lat, lon=storm_da.lon)
+    # for some reason, 850hPa wind is null for values in and around the AIS
+    # so, we compute over the ocean, where the 850hPa wind is also not null
+    notnull = var_da_subset.notnull()
+    # fill null locations with 0; will be excluded from computation anyway
+    var_da_subset = var_da_subset.fillna(0)
+    storm_da_ocean_notnull = storm_da_ocean*notnull
+    storm_cell_areas = area_da.sel(lat=storm_da.lat, lon=storm_da.lon)
+    tot_area = storm_da_ocean_notnull.dot(storm_cell_areas)
+    
+    avg_wind = (storm_cell_areas.dot(storm_da_ocean_notnull*var_da_subset)/tot_area).sel(time=first_landfall).values
+
+    return avg_wind
 
 def compute_average(storm_da, var_da, area_da, ais_da=None):
     if ais_da is not None:
@@ -271,13 +343,12 @@ ticker = 'inst1_2d_asm_Nx'
 func_vars_dict = {('max_T2m_ais', 'T2M'): lambda storm_da, var_da, area_da: compute_max_intensity(storm_da, var_da, area_da, ais_mask),
                   ('avg_V10m_ais', 'V10M'): lambda storm_da, var_da, area_da: compute_average(storm_da, -var_da, area_da, ais_mask),
                   ('max_V10m_ais', 'V10M'): lambda storm_da, var_da, area_da: compute_max_intensity(storm_da, -var_da, area_da, ais_mask),
-                  ('avg_V10m', 'V10M'): lambda storm_da, var_da, area_da: compute_average(storm_da, -var_da, area_da),
-                  ('max_V10m', 'V10M'): lambda storm_da, var_da, area_da: compute_max_intensity(storm_da, -var_da, area_da),
                   ('avg_IWV_ais', 'TQV'): lambda storm_da, var_da, area_da: compute_average(storm_da, var_da, area_da, ais_mask),
                   ('max_IWV_ais', 'TQV'): lambda storm_da, var_da, area_da: compute_max_intensity(storm_da, var_da, area_da, ais_mask),
                   ('avg_IWV', 'TQV'): lambda storm_da, var_da, area_da: compute_average(storm_da, var_da, area_da),
                   ('max_IWV', 'TQV'): lambda storm_da, var_da, area_da: compute_max_intensity(storm_da, var_da, area_da),
-                  ('landfalling_SLP', 'SLP'): lambda storm_da, var_da, area_da: compute_min_SLP(storm_da, var_da, area_da, ais_mask)}
+                  ('min_ocean_SLP', 'SLP'): lambda storm_da, var_da, area_da: compute_min_SLP(storm_da, var_da, area_da, ais_mask),
+                  ('max_ocean_SLP_gradient', 'SLP'): lambda storm_da, var_da, area_da: compute_max_SLPgrad(storm_da, var_da, area_da, ais_mask)}
 
 func_vars_dict_anomaly = {('max_T2M_anomaly_ais', 'T2M'): lambda storm_da, var_da, area_da: compute_max_intensity(storm_da, var_da, area_da, ais_mask)}
 climatology_dict = {'T2M': climatology_t2m}
@@ -304,19 +375,36 @@ func_vars_dict = {('avg_vIVT_ais', 'VFLXQV'): lambda storm_da, var_da, area_da: 
                   ('avg_vIVT', 'VFLXQV'): lambda storm_da, var_da, area_da: compute_average(storm_da, -var_da, area_da),
                   ('max_vIVT', 'VFLXQV'): lambda storm_da, var_da, area_da: compute_max_intensity(storm_da, -var_da, area_da)}
 
-summaries_lst_tavg1 = []
+summaries_lst_tavg1_precip = []
 
 for i in tqdm(range(landfalling_storms.shape[0])):
     
     storm = landfalling_storms.iloc[i].data_array
-    summaries_ivt = compute_raw_summaries(storm, func_vars_dict, cell_areas, ticker, tavg1_data_path, ivt=True)
+    summaries_ivt = compute_raw_summaries(storm, func_vars_dict, cell_areas, ticker, tavg1_precip_data_path, ivt=True)
     summaries_precip = compute_precip_summaries(storm, cell_areas, lambda storm_da, var_da, area_da: compute_cumulative(storm_da, var_da, area_da, ais_mask))
     summaries = summaries_ivt + summaries_precip
-    summaries_lst_tavg1.append(summaries)
+    summaries_lst_tavg1_precip.append(summaries)
     
-labels_tavg1 = np.append(np.array(list(func_vars_dict.keys()))[:,0], np.array(['cumulative_rainfall_ais', 'cumulative_snowfall_ais']))
+labels_tavg1_precip = np.append(np.array(list(func_vars_dict.keys()))[:,0], np.array(['cumulative_rainfall_ais', 'cumulative_snowfall_ais']))
 
-##################################### Compute areal and durational quantities #####################################
+##################################### Compute quantities from tavg1_2d_slv_Nx #####################################
+print('Beginning masking of quantities from tavg1_2d_slv_Nx')
+
+ticker = 'tavg1_2d_slv_Nx'
+func_vars_dict = {('max_landfalling_v850hPa', 'V850'): lambda storm_da, var_da, area_da: compute_max_landfalling_wind(storm_da, -var_da, area_da, ais_mask),
+                 ('avg_landfalling_v850hPa', 'V850'): lambda storm_da, var_da, area_da: compute_avg_landfalling_wind(storm_da, -var_da, area_da, ais_mask)}
+
+summaries_lst_tavg1_wind = []
+
+for i in tqdm(range(landfalling_storms.shape[0])):
+    
+    storm = landfalling_storms.iloc[i].data_array
+    summaries = compute_raw_summaries(storm, func_vars_dict, cell_areas, ticker, tavg1_850hPa_wind_data_path, ivt=True)
+    summaries_lst_tavg1_wind.append(summaries)
+    
+labels_tavg1_wind = np.array(list(func_vars_dict.keys()))[:,0]
+
+##################################### Compute area and duration quantities #####################################
 
 landfalling_storms['max_area'] = landfalling_storms['data_array'].apply(compute_max_area)
 landfalling_storms['mean_area'] = landfalling_storms['data_array'].apply(compute_mean_area)
@@ -329,7 +417,9 @@ landfalling_storms['max_south_extent'] = landfalling_storms['data_array'].apply(
 
 # add in the merra2 aggregates to the landfalling dataframe
 landfalling_storms[labels_inst1] = summaries_lst_inst1
-landfalling_storms[labels_tavg1] = summaries_lst_tavg1
+landfalling_storms[labels_tavg1_precip] = summaries_lst_tavg1_precip
+landfalling_storms[labels_tavg1_wind] = summaries_lst_tavg1_wind
+
 
 # save the dataframe
-landfalling_storms.to_hdf(home_dir + '/data/landfalling_storm_quantities_df.h5', key='df')
+landfalling_storms.to_hdf(home_dir + '/data/ar_database/dataframe_eps12_eps500_minpts5_reppts20/landfalling_storm_quantities_df.h5', key='df')
