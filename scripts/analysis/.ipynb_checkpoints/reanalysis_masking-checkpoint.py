@@ -15,7 +15,7 @@ tavg1_precip_data_path = '/pscratch/sd/j/jbbutler/merra2_data_precip_ivt/'
 tavg1_850hPa_wind_data_path = '/pscratch/sd/j/jbbutler/merra2_data_850hPa_wind/'
 
 # load up all of the dataframes
-df_path = home_dir + '/data/ar_database/dataframe_eps12_eps500_minpts5_reppts20/storm_df.h5'
+df_path = home_dir + '/data/ar_database/dataframe_eps12_eps500_minpts5_reppts10/storm_df.h5'
 dataframe = pd.read_hdf(df_path)
 
 landfalling_storms = dataframe[dataframe.is_landfalling]
@@ -341,13 +341,8 @@ print('Beginning masking of quantities from inst1_2d_asm_Nx')
 ticker = 'inst1_2d_asm_Nx'
 
 func_vars_dict = {('max_T2m_ais', 'T2M'): lambda storm_da, var_da, area_da: compute_max_intensity(storm_da, var_da, area_da, ais_mask),
-                  ('avg_V10m_ais', 'V10M'): lambda storm_da, var_da, area_da: compute_average(storm_da, -var_da, area_da, ais_mask),
-                  ('max_V10m_ais', 'V10M'): lambda storm_da, var_da, area_da: compute_max_intensity(storm_da, -var_da, area_da, ais_mask),
                   ('avg_IWV_ais', 'TQV'): lambda storm_da, var_da, area_da: compute_average(storm_da, var_da, area_da, ais_mask),
                   ('max_IWV_ais', 'TQV'): lambda storm_da, var_da, area_da: compute_max_intensity(storm_da, var_da, area_da, ais_mask),
-                  ('avg_IWV', 'TQV'): lambda storm_da, var_da, area_da: compute_average(storm_da, var_da, area_da),
-                  ('max_IWV', 'TQV'): lambda storm_da, var_da, area_da: compute_max_intensity(storm_da, var_da, area_da),
-                  ('min_ocean_SLP', 'SLP'): lambda storm_da, var_da, area_da: compute_min_SLP(storm_da, var_da, area_da, ais_mask),
                   ('max_ocean_SLP_gradient', 'SLP'): lambda storm_da, var_da, area_da: compute_max_SLPgrad(storm_da, var_da, area_da, ais_mask)}
 
 func_vars_dict_anomaly = {('max_T2M_anomaly_ais', 'T2M'): lambda storm_da, var_da, area_da: compute_max_intensity(storm_da, var_da, area_da, ais_mask)}
@@ -422,4 +417,4 @@ landfalling_storms[labels_tavg1_wind] = summaries_lst_tavg1_wind
 
 
 # save the dataframe
-landfalling_storms.to_hdf(home_dir + '/data/ar_database/dataframe_eps12_eps500_minpts5_reppts20/landfalling_storm_quantities_df.h5', key='df')
+landfalling_storms.to_hdf(home_dir + '/data/ar_database/dataframe_eps12_eps500_minpts5_reppts10/landfalling_storm_quantities_df.h5', key='df')
