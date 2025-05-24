@@ -1,5 +1,4 @@
-from sklearn.metrics.pairwise import haversine_distances
-import numpy as np
+import numpy as npavera
 import pandas as pd
 import xarray as xr
 import os
