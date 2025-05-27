@@ -12,6 +12,7 @@ from utils import average_angle
 from utils import arctan
 from utils import retrieve_neighbors
 from sklearn.cluster import DBSCAN
+from sklearn.metrics.pairwise import haversine_distances
 from tqdm import tqdm
 
 class ST_DBSCAN:
@@ -85,7 +86,7 @@ class ST_DBSCAN:
         # loop through the dataframe made and unpack all of the representative points sampled for each cluster
         # resulting dataframe will have rows consisting of representative storm point
         # this is basically getting the data in the right format to do the ST-DBSCAN step
-        unpacked_df = self.__unpack_df(ar_pt_df)
+        unpacked_df = self.unpack_df(ar_pt_df)
 
         # add cluster membership column back to original df
         cluster_infos_df['cluster'] = self.__fit_spatiotemporal(unpacked_df)
@@ -98,7 +99,7 @@ class ST_DBSCAN:
 
         return clustering
 
-    def __unpack_df(self, ar_pt_df):
+    def unpack_df(self, ar_pt_df):
 
         unpacked_indices = []
         unpacked_lats = []

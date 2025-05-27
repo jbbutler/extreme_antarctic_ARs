@@ -5,7 +5,6 @@ import pandas as pd
 import dask
 import xarray as xr
 import seaborn as sns
-import matplotlib.pyplot as plt
 from sklearn.cluster import DBSCAN
 from sklearn.metrics.pairwise import haversine_distances
 import math

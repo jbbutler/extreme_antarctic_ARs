@@ -1,6 +1,7 @@
-import numpy as npavera
+import numpy as np
 import pandas as pd
 import xarray as xr
+from sklearn.metrics.pairwise import haversine_distances
 import os
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -50,7 +51,7 @@ def to_stormtime_format(catalog):
 
     return stormtime_df
 
-# homegrown arctan function to make sure that, for a given x and y, the
+# homemade arctan function to make sure that, for a given x and y, the
 # the angle corresponds to the correct half of the unit circle
 def arctan(x, y):
     if y/x > 0:
@@ -141,7 +142,7 @@ def construct_da(cluster_df):
 def load_catalogs(years=None):
 
     curwd = os.getcwd()
-    catalog_paths = str(Path(curwd).parents[0]) + '/data/ar_catalogs/*.nc'
+    catalog_paths = str(Path(curwd).parents[0]) + '/data/wille_ar_catalogs/*.nc'
     full_catalog = xr.open_mfdataset(catalog_paths)
 
     if years is not None:
