@@ -99,7 +99,20 @@ class ST_DBSCAN:
 
         return clustering
 
-    def unpack_df(self, ar_pt_df):
+    def unpack_df(self, ar_pt_df, clustered_label=None):
+        '''
+        A helper method to unpack a DataFrame whose rows are spatial AR clusters at a point in time. Unpacks
+        the lists of assoicated points into a larger dataframe where each row consists of an AR pixel at a particular
+        lat, lon, and time. Also stored is a label tagging which points where part of spatial clusters together.
+
+        Inputs:
+            ar_pt_df (pandas.DataFrame):  a DataFrame in the format described above
+            clustered_label (String): string label for a column of cluster labels in ar_pt_df. If provided,
+                unpacking the ar_pt_df will also include a column of the cluster labels for each point after
+                spatiotemporal clustering. By default, this method behaves as a helper method preparing the data 
+                for ST-DBSCAN, so the column will just contain NaNs that will later be replaced with labels upon
+                spatiotemporal clustering.
+        '''
 
         unpacked_indices = []
         unpacked_lats = []
@@ -113,7 +126,19 @@ class ST_DBSCAN:
             unpacked_lats = unpacked_lats + list(np.radians(ar_pt_df.loc[index].rep_lats)) + [np.radians(ar_pt_df.loc[index].mean_lat)]
             unpacked_lons = unpacked_lons + list(np.radians(ar_pt_df.loc[index].rep_lons)) + [np.radians(ar_pt_df.loc[index].mean_lon)]
 
-        unpacked_df = pd.DataFrame({'cluster':np.full(len(unpacked_indices), np.nan), 'space_cluster':unpacked_indices, 'time':unpacked_times, 'lat':unpacked_lats, 'lon':unpacked_lons})
+        if clustered_label:
+            cluster_labs = ar_pt_df[clustered_label]
+            unpacked_cluster_labs = []
+            
+            for index in list(ar_pt_df.index):
+                num_pts = len(ar_pt_df.loc[index].rep_lats) + 1
+                unpacked_cluster_labs = unpacked_cluster_labs + [cluster_labs.loc[index]]*num_pts
+
+
+            unpacked_df = pd.DataFrame({'cluster':unpacked_cluster_labs, 'space_cluster':unpacked_indices,'time':unpacked_times, 'lat':unpacked_lats, 'lon':unpacked_lons})
+
+        else:
+            unpacked_df = pd.DataFrame({'cluster':np.full(len(unpacked_indices), np.nan), 'space_cluster':unpacked_indices,'time':unpacked_times, 'lat':unpacked_lats, 'lon':unpacked_lons})
 
         return unpacked_df
 
