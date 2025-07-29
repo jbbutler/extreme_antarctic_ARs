@@ -1,3 +1,8 @@
+# Script that will fill in the dataframe of AR events with relevant information about each storm, like durations, landfalling regions
+# as well as masking re-analysis data to obtain quantities like snowfall, moisture content, energy, etc.
+#
+# Jimmy Butler
+# June 2025
 import pandas as pd
 import xarray as xr
 import numpy as np
@@ -7,7 +12,10 @@ import seaborn as sns
 import xarray as xr
 from tqdm import tqdm
 import dask
+import utils
 
+# configure paths to where each MERRA-2 dataset data is stored
+# ideally in the future, this could just be replaced with masking data streamed directly
 home_dir = str(Path(os.getcwd()).parents[1])
 scratch_path = '/pscratch/sd/j/jbbutler/'
 inst1_data_path = '/pscratch/sd/j/jbbutler/merra2_data_T2m_V10m_SLP_IWV/'
@@ -18,6 +26,7 @@ tavg1_850hPa_wind_data_path = '/pscratch/sd/j/jbbutler/merra2_data_850hPa_wind/'
 df_path = home_dir + '/data/ar_database/dataframe_eps12_eps500_minpts5_reppts10/storm_df.h5'
 dataframe = pd.read_hdf(df_path)
 
+# only take those that are landfalling
 landfalling_storms = dataframe[dataframe.is_landfalling]
 
 # load up the cell areas dataarray
@@ -27,13 +36,24 @@ cell_areas = cell_areas.assign_coords(lat=cell_areas.lat.round(5), lon=cell_area
 # load up the antarctic ice sheet mask
 ais_mask = xr.open_dataset('~/extreme_antarctic_ARs/data/antarctic_masks/AIS_Full_basins_Zwally_MERRA2grid_new.nc')
 ais_mask = ais_mask > 0
-ais_mask = ais_mask.assign_coords(lat=ais_mask.lat.round(5), lon=ais_mask.lon.round(5))
-# load up the climatology
-climatology_t2m = xr.load_dataset(scratch_path + 'merra2_monthly_data/t2m_climatology.nc')
+ais_mask = ais_mask.assign_coords(lat=ais_mask.lat.round(5), lon=ais_mask.lon.round(5)) # this is to avoid issues with -0 not matching 0
+# compute the climatologies (so far, only for SLP, 2m-temperature, and IWV/TQV)
+monthly_averages = xr.open_mfdataset('/pscratch/sd/j/jbbutler/merra2_monthly_data/*.nc4')
+climatology_ds = monthly_averages.groupby(monthly_averages.time.dt.month).mean().compute()
 
 ################################### Functions to compute areal/durational quantities #################################
 def compute_max_area(ar_da, ais_da=None):
-    
+    '''
+    A function that, given a binary mask DataArray for a storm, computes the max area occupied over lifetime
+
+    Inputs:
+        ar_da (xarray.DataArray): the binary valued DataArray for that storm
+        ais_da (xarray.DataArray): if provided, find max area occupied over AIS (default: over AIS + ocean)
+    Outputs:
+        max_area (float): the area in km^2
+    '''
+
+    # just to be safe, round coordinates so that -0 matches with 0 degrees, in case that appears
     ar_da_rounded = ar_da.assign_coords(lat=ar_da.lat.round(5), lon=ar_da.lon.round(5))
     
     if ais_da is not None:
@@ -48,10 +68,27 @@ def compute_max_area(ar_da, ais_da=None):
     return max_area
 
 def compute_max_southward_extent(ar_da):
+    '''
+    A function that, given a binary mask DataArray for a storm, computes the lowest latitude it occupied
+
+    Inputs:
+        ar_da (xarray.DataArray): the binary valued DataArray for that storm
+    Outputs:
+        (float): the lowest latitude in degrees
+    '''
     ar_da_rounded = ar_da.assign_coords(lat=ar_da.lat.round(5), lon=ar_da.lon.round(5))
     return np.min(ar_da.lat.values)
 
 def compute_mean_area(ar_da, ais_da=None):
+    '''
+    A function that, given a binary mask DataArray for a storm, computes the mean area occupied over lifetime
+
+    Inputs:
+        ar_da (xarray.DataArray): the binary valued DataArray for that storm
+        ais_da (xarray.DataArray): if provided, find mean area occupied over AIS (default: over AIS + ocean)
+    Outputs:
+        mean_area (float): the area in km^2
+    '''
     
     ar_da_rounded = ar_da.assign_coords(lat=ar_da.lat.round(5), lon=ar_da.lon.round(5))
     
@@ -66,6 +103,16 @@ def compute_mean_area(ar_da, ais_da=None):
     return mean_area
 
 def compute_cumulative_spacetime(ar_da, ais_da=None):
+    '''
+    A function that, given a binary mask DataArray for a storm, computes the cumulative amount
+        of space and time the storm spent over the AIS (measured in km^2 x days)
+
+    Inputs:
+        ar_da (xarray.DataArray): the binary valued DataArray for that storm
+        ais_da (xarray.DataArray): if provided, find quantity occupied over AIS (default: over AIS + ocean)
+    Outputs:
+        cumulative_area (float): the cumulative area in km^2 x days
+    '''
     
     ar_da_rounded = ar_da.assign_coords(lat=ar_da.lat.round(5), lon=ar_da.lon.round(5))
     
@@ -76,20 +123,121 @@ def compute_cumulative_spacetime(ar_da, ais_da=None):
         storm_da_subset = ar_da_rounded.copy()
     
     grid_area_storm = cell_areas.sel(lat=storm_da_subset.lat, lon=storm_da_subset.lon)
-    cumulative_area = float((3*storm_da_subset.dot(grid_area_storm)).sum().values/((1000**2)*24))
+    cumulative_area = float((3*storm_da_subset.dot(grid_area_storm)).sum().values/((1000**2)*24)) #3 comes from 3 hourly blocks of Wille catalog
     return cumulative_area
 
 def compute_duration(ar_da):
+    '''
+    Returns the duration of a storm. Note if the storm only occupies one 3 hourly time step, that storm's duration is 3 hours.
+
+    Inputs:
+        ar_da (xarray.DataArray): the binary mask for the storm
+    Outputs:
+        days (np.timedelta64): number of hours
+    '''
     days = (ar_da.time.max() - ar_da.time.min()).values.astype('timedelta64[h]').astype(int) + np.timedelta64(3, 'h')
     return days
 
 def add_start_date(ar_da):
+    '''
+    Returns the start date of a storm.
+
+    Inputs:
+        ar_da (xarray.DataArray): the binary mask for the storm
+    Outputs:
+        start (np.datetime64): starting time (3 hourly level)
+    '''
     start = ar_da.time.min().values
     return start
 
 def add_end_date(ar_da):
+    '''
+    Returns the end date of a storm.
+
+    Inputs:
+        ar_da (xarray.DataArray): the binary mask for the storm
+    Outputs:
+        end (np.datetime64): ending time (3 hourly level)
+    '''
     end = ar_da.time.max().values
     return end
+
+def find_landfalling_region(ar_da, region_masks):
+    '''
+    Finding the region in which the storm makes landfall. Regions provided by David Mikolajczyk
+    at UW Madison, with additional regions for the RIS, FRIS, and completing the connection between
+    QMC and END. Landfalling region determined as which one it has the most CLA over.
+
+    Inputs:
+        ar_da (xarray.DataArray): the binary mask DataArray
+        region_masks (dictionary): keys are strings indicating region names, values are xarray.DataArray
+            masks indicating pixels for those regions
+    Outputs:
+        winning_region (string): the string name of the region it spends most area x time over
+    '''
+
+    region_CLA = {}
+    for label, mask in region_masks.items():
+        region_CLA[label] = compute_cumulative_spacetime(ar_da, ais_da=mask)
+
+    region_CLA = pd.Series(region_CLA)
+    winning_region = region_CLA.idxmax()
+
+    return winning_region
+
+def find_region_masks(region_defs, ais_da):
+    '''
+    Helper function for the above find_landfalling_region function. Given longitude bounds for each region,
+    find binary masks for each of these from the AIS mask
+    
+    Inputs:
+        region_defs (dictionary): dictionary whose keys are strings indicating names of regions and
+            values are lists with lower and upper longitude bounds for the regions
+        ais_da (xarray.DataArray): the binary mask for the AIS
+    Output:
+        region_masks (dictionary): keys are names of regions (strings), and values are DataArray masks for
+            just that region
+    '''
+
+    region_masks = {}
+
+    for label, bound in region_defs.items():
+        region_masks[label] = ais_da.where((ais_da.lon > bound[0]) & (ais_da.lon < bound[1]), False)
+
+    return region_masks
+
+def extract_trajectory(ar_da):
+    '''
+    Given an AR's binary valued DataArray, return a curve representing the path of the AR through space and time
+
+    Inputs:
+        ar_da (xarray.DataArray): the binary valued DataArray
+    Output:
+        trajectory_df (pd.DataFrame): a DataFrame where each row is the average lat/lon of the storm at a particular time.
+    '''
+    times = ar_da.time.values
+
+    avg_lons = []
+    avg_lats = []
+
+    for time in times:
+        
+        time_slice = ar_da.sel(time=time)
+        inds = np.argwhere(time_slice.values == 1)
+        storm_lats = time_slice.lat[inds[:,0]]
+        storm_lons = time_slice.lon[inds[:,1]]
+
+        time_slice_coords = pd.DataFrame({'lats':storm_lats, 'lons':storm_lons})
+        time_slice_coords.name = '1'
+        
+        avg_angle = utils.average_angle(time_slice_coords)
+
+        avg_lons.append(avg_angle[2])
+        avg_lats.append(avg_angle[1])
+
+    trajectory_df = pd.DataFrame({'time': times, 'avg_lon': avg_lons, 'avg_lat': avg_lats})
+
+    return trajectory_df
 
 ########################### Functions to compute aggregates of MERRA-2 data #############################
 def compute_cumulative(storm_da, var_da, area_da, ais_da=None):
@@ -283,7 +431,6 @@ def compute_anomaly_summaries(storm_da, func_vars_dict, climatology_dict, cell_a
         climatology = climatology_dict[key[1]]
         climatology = climatology.assign_coords(lat=climatology.lat.round(5), lon=climatology.lon.round(5))
         single_var_da = xr.apply_ufunc(lambda da, clim: da-clim, actual_da.groupby('time.month'), climatology).drop_vars('month')
-        single_var_da = single_var_da[key[1]]
         summaries.append(func(storm_da, single_var_da, cell_areas))
         
     return summaries
@@ -345,8 +492,8 @@ func_vars_dict = {('max_T2m_ais', 'T2M'): lambda storm_da, var_da, area_da: comp
                   ('max_IWV_ais', 'TQV'): lambda storm_da, var_da, area_da: compute_max_intensity(storm_da, var_da, area_da, ais_mask),
                   ('max_ocean_SLP_gradient', 'SLP'): lambda storm_da, var_da, area_da: compute_max_SLPgrad(storm_da, var_da, area_da, ais_mask)}
 
-func_vars_dict_anomaly = {('max_T2M_anomaly_ais', 'T2M'): lambda storm_da, var_da, area_da: compute_max_intensity(storm_da, var_da, area_da, ais_mask)}
-climatology_dict = {'T2M': climatology_t2m}
+func_vars_dict_anomaly = {('max_T2M_anomaly_ais', 'T2M'): lambda storm_da, var_da, area_da: compute_max_intensity(storm_da, var_da, area_da, ais_mask),
+                          ('max_IWV_anomaly_ais', 'TQV'): lambda storm_da, var_da, area_da: compute_max_intensity(storm_da, var_da, area_da, ais_mask)}
 
 summaries_lst_inst1 = []
 
@@ -354,7 +501,7 @@ for i in tqdm(range(landfalling_storms.shape[0])):
     
     storm = landfalling_storms.iloc[i].data_array
     summaries = compute_raw_summaries(storm, func_vars_dict, cell_areas, ticker, inst1_data_path)
-    summaries_anomaly = compute_anomaly_summaries(storm, func_vars_dict_anomaly, climatology_dict, cell_areas, ticker, inst1_data_path)
+    summaries_anomaly = compute_anomaly_summaries(storm, func_vars_dict_anomaly, climatology_ds, cell_areas, ticker, inst1_data_path)
     
     summaries = summaries + summaries_anomaly
     summaries_lst_inst1.append(summaries)
@@ -399,7 +546,7 @@ for i in tqdm(range(landfalling_storms.shape[0])):
     
 labels_tavg1_wind = np.array(list(func_vars_dict.keys()))[:,0]
 
-##################################### Compute area and duration quantities #####################################
+##################################### Compute spatial and durational quantities #####################################
 
 landfalling_storms['max_area'] = landfalling_storms['data_array'].apply(compute_max_area)
 landfalling_storms['mean_area'] = landfalling_storms['data_array'].apply(compute_mean_area)
@@ -409,6 +556,21 @@ landfalling_storms['duration'] = landfalling_storms['data_array'].apply(compute_
 landfalling_storms['start_date'] = landfalling_storms['data_array'].apply(add_start_date)
 landfalling_storms['end_date'] = landfalling_storms['data_array'].apply(add_end_date)
 landfalling_storms['max_south_extent'] = landfalling_storms['data_array'].apply(compute_max_southward_extent)
+
+# region definitions from Wisconsin folks
+region_defs = {'MBL': [-150, -120], 
+               'ELS': [-120, -75],
+               'AP': [-75, -50],
+               'FRIS': [-50, -30],
+               'QML': [-30, 30],
+               'END': [30, 75],
+               'QMC': [75, 120],
+               'WLK': [120, 150],
+               'VICT': [150, 180],
+               'RIS': [-180, -150]}
+region_masks = find_region_masks(region_defs, ais_mask)
+landfalling_storms['region'] = landfalling_storms['data_array'].apply(lambda x: find_landfalling_region(x, region_masks))
+landfalling_storms['trajectory'] = landfalling_storms['data_array'].apply(extract_trajectory)
 
 # add in the merra2 aggregates to the landfalling dataframe
 landfalling_storms[labels_inst1] = summaries_lst_inst1
