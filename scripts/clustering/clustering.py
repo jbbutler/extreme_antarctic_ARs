@@ -10,8 +10,6 @@ from sklearn.metrics.pairwise import haversine_distances
 import math
 from tqdm import tqdm
 
-import pdb
-
 import st_dbscan as st
 
 import utils
