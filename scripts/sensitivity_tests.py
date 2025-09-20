@@ -50,6 +50,8 @@ dask.config.set(schedule='processes', num_workers=n_tasks);
 # function that executes each iteration of the parallel loop
 def parallelized_code(i):
     par_dict = combos[i]
+
+    random.seed(par_dict['seed'])
     
     # make the name for folder to store results in
     fname_tuples = list(par_dict.items())
