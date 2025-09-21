@@ -1,0 +1,11 @@
+#!/bin/bash
+#SBATCH --job-name=AR_reppts
+#SBATCH --mail-type=ALL   
+#SBATCH --mail-user=butlerj@berkeley.edu
+#SBATCH -o reppts_$1.out #File to which standard out will be written
+#SBATCH -e reppts_$1.err #File to which standard err will be written
+
+source ~/.bashrc
+conda activate antarctic_ars
+
+python clustering.py --save_path '/scratch/users/butlerj/extreme_antarctic_ars/catalog_runs' --n_rep_pts $1
