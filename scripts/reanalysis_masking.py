@@ -21,9 +21,11 @@ scratch_path = '/pscratch/sd/j/jbbutler/'
 inst1_data_path = '/pscratch/sd/j/jbbutler/merra2_data_T2m_V10m_SLP_IWV/'
 tavg1_precip_data_path = '/pscratch/sd/j/jbbutler/merra2_data_precip_ivt/'
 tavg1_850hPa_wind_data_path = '/pscratch/sd/j/jbbutler/merra2_data_850hPa_wind/'
+tavg1_omega500_data_path = '/pscratch/sd/j/jbbutler/merra2_data_omega500/'
+
 
 # load up all of the dataframes
-df_path = home_dir + '/data/ar_database/dataframe_eps12_eps500_minpts5_reppts10/storm_df.h5'
+df_path = home_dir + '/data/catalog/...'
 dataframe = pd.read_hdf(df_path)
 
 # only take those that are landfalling
@@ -283,6 +285,36 @@ def compute_min_SLP(storm_da, var_da, area_da, ais_da):
     return min_slp
 
 def compute_max_SLPgrad(storm_da, var_da, area_da, ais_da):
+
+    storm_ais_mask = ais_da.sel(lat=storm_da.lat, lon=storm_da.lon).Zwallybasins
+    storm_ocean_mask = np.logical_not(storm_ais_mask)
+    storm_da_ais = storm_da.where(storm_ais_mask, 0)
+    storm_da_ocean = storm_da.where(storm_ocean_mask, 0)
+
+    var_da_subset = var_da.sel(lat=storm_da.lat, lon=storm_da.lon)
+    first_landfall = np.min(storm_da.time[storm_da_ais.any(dim=['lat', 'lon'])].values)
+
+    var_da_subset_landfall = var_da_subset.sel(time=first_landfall)
+    storm_da_ocean_landfall = storm_da_ocean.sel(time=first_landfall)
+
+    # return -1 if no points over the ocean at first landfalling time
+    if (storm_da_ocean_landfall == 0).all().values:
+        return -1
+    ## compute pressure gradient
+    # convert to radians
+    rads = var_da_subset_landfall.assign_coords(lon=np.radians(var_da_subset_landfall.lon), lat=np.radians(var_da_subset_landfall.lat))
+    # partials in the latitude direction (spherical coordinates)
+    r = 6378 # radius of Earth in km
+    lat_partials = rads.differentiate('lat')/r
+    # partials in the longitudinal direction (spherical coordinates)
+    lon_partials = rads.differentiate('lon')/(np.sin(rads.lat)*r)
+    
+    magnitude = np.sqrt(lon_partials**2 + lat_partials**2)
+    max_grad = np.max(magnitude.values*storm_da_ocean_landfall.values)
+
+    return max_grad
+
+def compute_max_elevation_grad(storm_da, var_da, area_da, ais_da):
 
     storm_ais_mask = ais_da.sel(lat=storm_da.lat, lon=storm_da.lon).Zwallybasins
     storm_ocean_mask = np.logical_not(storm_ais_mask)
