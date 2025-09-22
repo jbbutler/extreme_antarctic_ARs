@@ -23,7 +23,6 @@ tavg1_precip_data_path = '/pscratch/sd/j/jbbutler/merra2_data_precip_ivt/'
 tavg1_850hPa_wind_data_path = '/pscratch/sd/j/jbbutler/merra2_data_850hPa_wind/'
 tavg1_omega500_data_path = '/pscratch/sd/j/jbbutler/merra2_data_omega500/'
 
-
 # load up all of the dataframes
 df_path = home_dir + '/data/catalog/...'
 dataframe = pd.read_hdf(df_path)
