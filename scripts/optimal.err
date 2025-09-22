@@ -5,3 +5,8 @@ Try using .loc[row_indexer,col_indexer] = value instead
 
 See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
   ar_pt_df['cluster'] = np.full(cluster_infos_df.shape[0], np.nan)
+/accounts/grad/butlerj/extreme_antarctic_ARs/scripts/clustering.py:75: PerformanceWarning: 
+your performance may suffer as PyTables will pickle object types that it cannot
+map directly to c-types [inferred_type->mixed,key->block0_values] [items->Index(['data_array'], dtype='object')]
+
+  dataframe.to_hdf(args.save_path + f'/epsspace{par_dict['eps_space']}_epstime{par_dict['eps_time']}_minpts{par_dict['min_pts']}_nreppts{par_dict['rep_pts']}_seed{par_dict['seed']}.h5', key='df')
