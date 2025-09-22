@@ -207,7 +207,10 @@ def find_region_masks(region_defs, ais_da):
     region_masks = {}
 
     for label, bound in region_defs.items():
-        region_masks[label] = ais_da.where((ais_da.lon > bound[0]) & (ais_da.lon < bound[1]), False)
+        if bound[0] > bound[1]: # if we're crossing the dateline
+            region_masks[label] = ais_da.where(((ais_da.lon > bound[0]) & (ais_da.lon <= 180)) | ((ais_da.lon >= -180) & (ais_da.lon < bound[1])), False)
+        else: # normal case
+            region_masks[label] = ais_da.where((ais_da.lon > bound[0]) & (ais_da.lon < bound[1]), False)
 
     return region_masks
 
