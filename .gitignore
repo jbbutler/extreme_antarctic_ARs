@@ -1,4 +1,4 @@
 .ipynb_checkpoints
-/data/catalog/
-/data/ar_database/
+/project/dataset/datasets/
+/project/catalog/epsspace0.5_epstime12_minpts5_nreppts10_seed12345.h5
 __pycache__
