@@ -1,0 +1,22 @@
+{
+    "etas": [
+        0.001,
+        0.005
+    ],
+    "gammas": [
+        0.0005
+    ],
+    "max_depth": [
+        3
+    ],
+    "lambdas": [
+        0
+    ],
+    "min_child_weights": [
+        0.0005
+    ],
+    "nrounds": 20,
+    "early_stopping_rounds": 10,
+    "tree_method": "exact",
+    "booster": "gbtree"
+}
