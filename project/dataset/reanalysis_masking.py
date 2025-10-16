@@ -11,35 +11,38 @@ from pathlib import Path
 import seaborn as sns
 import xarray as xr
 from tqdm import tqdm
-import dask
-import utils
+import sys
+curwd = os.getcwd()
+proj_path = Path(curwd).parents[0]
+sys.path.append(str(proj_path/'catalog/catalog_building/'))
+from st_dbscan import utils
 
 # configure paths to where each MERRA-2 dataset data is stored
 # ideally in the future, this could just be replaced with masking data streamed directly
-home_dir = str(Path(os.getcwd()).parents[0])
 scratch_path = '/pscratch/sd/j/jbbutler/'
 inst1_data_path = '/pscratch/sd/j/jbbutler/merra2_data_T2m_V10m_SLP_IWV/'
 tavg1_precip_data_path = '/pscratch/sd/j/jbbutler/merra2_data_precip_ivt/'
 tavg1_850hPa_wind_data_path = '/pscratch/sd/j/jbbutler/merra2_data_850hPa_wind/'
-tavg1_omega500_data_path = '/pscratch/sd/j/jbbutler/merra2_data_omega500/'
+inst3_omega850_data_path = '/pscratch/sd/j/jbbutler/merra2_data_omega/'
+
 
 # load up all of the dataframes
-df_path = home_dir + '/data/catalog/epsspace0.5_epstime12_minpts5_nreppts10_seed12345.h5'
+df_path = proj_path/'catalog/epsspace0.5_epstime12_minpts5_nreppts10_seed12345.h5'
 dataframe = pd.read_hdf(df_path)
 
 # only take those that are landfalling
 landfalling_storms = dataframe[dataframe.is_landfalling]
 
 # load up the cell areas dataarray
-cell_areas = xr.open_dataset('~/extreme_antarctic_ARs/data/area/MERRA2_gridarea.nc')
+cell_areas = xr.open_dataset(proj_path/'input_data/area/MERRA2_gridarea.nc')
 cell_areas = cell_areas.cell_area
 cell_areas = cell_areas.assign_coords(lat=cell_areas.lat.round(5), lon=cell_areas.lon.round(5))
 # load up the antarctic ice sheet mask
-ais_mask = xr.open_dataset('~/extreme_antarctic_ARs/data/antarctic_masks/AIS_Full_basins_Zwally_MERRA2grid_new.nc')
+ais_mask = xr.open_dataset(proj_path/'input_data/antarctic_masks/AIS_Full_basins_Zwally_MERRA2grid_new.nc')
 ais_mask = ais_mask > 0
 ais_mask = ais_mask.assign_coords(lat=ais_mask.lat.round(5), lon=ais_mask.lon.round(5)) # this is to avoid issues with -0 not matching 0
 # load up the elevation dataset
-elevation = xr.open_dataset('/global/homes/j/jbbutler/extreme_antarctic_ARs/data/elevation/Elevation_MERRA2.nc')
+elevation = xr.open_dataset(proj_path/'input_data/elevation/Elevation_MERRA2.nc')
 elevation = elevation.PHIS
 # compute the climatologies (so far, only for SLP, 2m-temperature, and IWV/TQV)
 monthly_averages = xr.open_mfdataset('/pscratch/sd/j/jbbutler/merra2_monthly_data/*.nc4')
@@ -320,7 +323,7 @@ def compute_max_SLPgrad(storm_da, var_da, area_da, ais_da):
 
     return max_grad
 
-def compute_max_landfalling_omega500(storm_da, var_da, area_da, ais_da):
+def compute_max_landfalling_omega850(storm_da, var_da, area_da, ais_da):
     
     storm_ais_mask = ais_da.sel(lat=storm_da.lat, lon=storm_da.lon).Zwallybasins
     storm_da_ais = storm_da.where(storm_ais_mask, 0)
@@ -331,9 +334,9 @@ def compute_max_landfalling_omega500(storm_da, var_da, area_da, ais_da):
     
     var_da_subset_landfall = var_da_subset_landfall
     storm_da_landfall = storm_da.sel(time=first_landfall)
-    max_omega500 = float((storm_da_landfall*var_da_subset_landfall).max())
+    max_omega850 = float((storm_da_landfall*var_da_subset_landfall).max())
 
-    return max_omega500
+    return max_omega850
 
 def compute_max_elevation_grad(storm_da, var_da):
 
@@ -589,22 +592,23 @@ for i in tqdm(range(landfalling_storms.shape[0])):
     
 labels_tavg1_wind = np.array(list(func_vars_dict.keys()))[:,0]
 
-##################################### Compute omega quantities from tavg1_2d_slv_Nx #####################################
+##################################### Compute omega quantities from inst3_3d_asm_Np #####################################
 
-print('Beginning masking of omega 500 from tavg1_2d_slv_Nx')
+print('Beginning masking of omega 850hPa from inst3_3d_asm_Np')
 
-ticker = 'tavg1_2d_slv_Nx'
-func_vars_dict = {('max_landfalling_omega500', 'OMEGA500'): lambda storm_da, var_da, area_da: compute_max_landfalling_omega500(storm_da, -var_da, area_da, ais_mask)}
+ticker = 'inst3_3d_asm_Np'
+# select the specific level we want (850 hPa)
+func_vars_dict = {('max_landfalling_omega850', 'OMEGA'): lambda storm_da, var_da, area_da: compute_max_landfalling_omega850(storm_da, -(var_da.sel(lev=850)), area_da, ais_mask)}
 
-summaries_lst_tavg1_omega = []
+summaries_lst_inst3_omega = []
 
 for i in tqdm(range(landfalling_storms.shape[0])):
     
     storm = landfalling_storms.iloc[i].data_array
-    summaries = compute_raw_summaries(storm, func_vars_dict, cell_areas, ticker, tavg1_omega500_data_path, ivt=True)
-    summaries_lst_tavg1_omega.append(summaries)
+    summaries = compute_raw_summaries(storm, func_vars_dict, cell_areas, ticker, inst3_omega850_data_path)
+    summaries_lst_inst3_omega.append(summaries)
     
-labels_tavg1_omega = np.array(list(func_vars_dict.keys()))[:,0]
+labels_inst3_omega = np.array(list(func_vars_dict.keys()))[:,0]
 
 ##################################### Compute spatial and durational quantities #####################################
 
@@ -646,8 +650,8 @@ landfalling_storms['trajectory'] = landfalling_storms['data_array'].apply(extrac
 landfalling_storms[labels_inst1] = summaries_lst_inst1
 landfalling_storms[labels_tavg1_precip] = summaries_lst_tavg1_precip
 landfalling_storms[labels_tavg1_wind] = summaries_lst_tavg1_wind
-landfalling_storms[labels_tavg1_omega] = summaries_lst_tavg1_omega
+landfalling_storms[labels_inst3_omega] = summaries_lst_inst3_omega
 
 
 # save the dataframe
-landfalling_storms.to_hdf(home_dir + '/data/catalog/landfalling_storm_quantities_df.h5', key='df')
+landfalling_storms.to_hdf(proj_path/'dataset/datasets/landfalling_storm_quantities_df.h5', key='df')
