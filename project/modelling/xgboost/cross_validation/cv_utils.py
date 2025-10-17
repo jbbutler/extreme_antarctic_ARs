@@ -1,5 +1,5 @@
 import pandas as pd
-import xgboost as xbg
+import xgboost as xgb
 import numpy as np
 
 def process_hyperparam_chunk(lst, etas, booster, tree_method, nrounds, early_stopping_rounds, x_cols, y_col, load_training_path):
