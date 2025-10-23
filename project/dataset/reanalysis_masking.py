@@ -1,8 +1,11 @@
-# Script that will fill in the dataframe of AR events with relevant information about each storm, like durations, landfalling regions
-# as well as masking re-analysis data to obtain quantities like snowfall, moisture content, energy, etc.
-#
-# Jimmy Butler
-# June 2025
+'''
+Script that will fill in the dataframe of AR events with relevant information 
+about each storm, like durations, landfalling regions as well as masking re-analysis 
+data to obtain quantities like snowfall, moisture content, energy, etc.
+
+Jimmy Butler
+June 2025
+'''
 import pandas as pd
 import xarray as xr
 import numpy as np
@@ -219,12 +222,14 @@ def find_region_masks(region_defs, ais_da):
 
 def extract_trajectory(ar_da):
     '''
-    Given an AR's binary valued DataArray, return a curve representing the path of the AR through space and time
+    Given an AR's binary valued DataArray, return a curve representing the path of the AR 
+    through space and time (given as the spatial cluster centroid at each time step)
 
     Inputs:
         ar_da (xarray.DataArray): the binary valued DataArray
     Output:
-        trajectory_df (pd.DataFrame): a DataFrame where each row is the average lat/lon of the storm at a particular time.
+        trajectory_df (pandas.DataFrame): a DataFrame where each row is the average 
+            lat/lon of the storm at a particular time.
     '''
     times = ar_da.time.values
 
@@ -341,7 +346,6 @@ def compute_max_landfalling_omega850(storm_da, var_da, area_da, ais_da):
 def compute_max_elevation_grad(storm_da, var_da):
 
     # elevation data only goes up to -40, while some ARs start at -39
-    # align so there's no bugs
     storm_aligned, var_aligned = xr.align(storm_da, var_da, join='inner', exclude='time')
 
     ## compute elevation gradient

@@ -4,6 +4,7 @@ import xgboost as xgb
 import numpy as np
 from itertools import product
 from pathlib import Path
+from tqdm import tqdm
 import os
 import json
 import argparse
@@ -45,13 +46,17 @@ parallel_func = partial(process_hyperparam_chunk,
                         booster=hyperparam_dict['booster'], 
                         tree_method=hyperparam_dict['tree_method'], 
                         nrounds=hyperparam_dict['nrounds'], 
-                        early_stopping_rounds=hyperparam_dict['early_stopping_rounds'], 
+                        early_stopping_rounds=hyperparam_dict['early_stopping_rounds'],
                         x_cols=args.x_cols, 
                         y_col=args.y_col, 
                         load_training_path=load_path)
 
 if __name__ == '__main__':
     with multiprocessing.Pool(processes=ncores) as pool:
-        results = pool.map(parallel_func, chunk_lst)
+        results_iterator = pool.imap_unordered(parallel_func, chunk_lst)
+        print(f"Starting parallel processing of {len(chunk_lst)} chunks on {ncores} cores...")
+        results = list(tqdm(results_iterator, total=len(chunk_lst)))
+        print("Processing complete.")
+        
     full_df = pd.concat(results, ignore_index=True)
     full_df.to_csv(os.getcwd() + '/rounds/' + args.save_name)

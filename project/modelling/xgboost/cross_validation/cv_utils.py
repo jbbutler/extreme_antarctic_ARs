@@ -17,18 +17,17 @@ def process_hyperparam_chunk(lst, etas, booster, tree_method, nrounds, early_sto
         tree_method (string): method to use to construct trees (usually 'exact')
         nrounds (int): number of boosting rounds
         early_stopping_rounds (int): number of rounds to check for improvement in validation error
-        x_cols (list): the feature columns to use
-        y_col (string): the y column to use
-        load_training_path (string): path to the training dataset
     Ouputs:
         A pandas.DataFrame with the hyperparam set and the averaged rmse on the test set.
     '''
 
+    num_eta = len(etas)
+    results_lst = np.zeros((len(etas)*len(lst), len(lst[0]) + 3))
+
     train_data = pd.read_csv(load_training_path, index_col='Label')
     X = train_data[x_cols]
 
-    num_eta = len(etas)
-    results_lst = np.zeros((len(etas)*len(lst), len(lst[0]) + 3))
+    columns = ['gamma', 'max_depth', 'reg_lambda', 'min_child_weight', 'eta', 'num_boost', 'test_rmse']
     
     for i, param_set in enumerate(lst):
         for j, eta in enumerate(etas):
@@ -39,7 +38,9 @@ def process_hyperparam_chunk(lst, etas, booster, tree_method, nrounds, early_sto
                    reg_lambda=param_set[2],
                    min_child_weight=param_set[3],
                    tree_method=tree_method)
+
             dtrain = xgb.DMatrix(X, label=train_data[y_col])
+            
             res = xgb.cv(params,
                    dtrain,
                    nrounds,
@@ -48,6 +49,6 @@ def process_hyperparam_chunk(lst, etas, booster, tree_method, nrounds, early_sto
                    early_stopping_rounds=early_stopping_rounds)
             results_lst[i*num_eta + j,:] = np.array(list(param_set) + [eta] + [res.shape[0]] + [float(res['test-rmse-mean'].iloc[-1])])
 
-            results_df = pd.DataFrame(results_lst, columns=['gamma', 'max_depth', 'reg_lambda', 'min_child_weight', 'eta', 'num_boost', 'test_rmse'])
+    results_df = pd.DataFrame(results_lst, columns=columns)
 
     return results_df
