@@ -19,8 +19,11 @@ from sklearn.metrics.pairwise import haversine_distances
 from tqdm import tqdm
 
 class ST_DBSCAN:
+    '''
+    Instantiates an object with methods that perform the st-dbscan algorithm on some input data.
+    '''
     
-    def __init__(self, eps_space_1, eps_space_2, eps_time, minpts_1, minpts_2, n_rep_pts):
+    def __init__(self, eps_space_1, eps_space_2, eps_time, minpts_1, minpts_2, n_rep_pts, seed=None):
 
         self.eps_space_1 = eps_space_1
         self.eps_space_2 = eps_space_2
@@ -29,6 +32,11 @@ class ST_DBSCAN:
         self.minpts_2 = minpts_2
         self.n_rep_pts = n_rep_pts
 
+        # if the seed has not been specified, using numpys default rng
+        if not seed:
+            self.rng = np.random.default_rng()
+        else:
+            self.rng = np.random.default_rng(seed)
     
     def __repr__(self):
 
@@ -62,7 +70,8 @@ class ST_DBSCAN:
                                 columns=['cluster', 'mean_lat', 'mean_lon'])
 
             # randomly sample n_rep_pts-many points (without replacement) from each cluster and store
-            rep_pts = fixed_time_df.groupby('cluster', as_index=False)[['lats', 'lons']].agg(lambda x: list(np.random.choice(x, min(self.n_rep_pts, len(x)), replace=False)))
+            # uses the seed that we pass in
+            rep_pts = fixed_time_df.groupby('cluster', as_index=False)[['lats', 'lons']].agg(lambda x: list(self.rng.choice(x, min(self.n_rep_pts, len(x)), replace=False)))
             rep_pts.rename(columns={'lats':'rep_lats', 'lons':'rep_lons'}, inplace=True)
 
             rep_pts_df = pd.merge(rep_pts, avg_positions, on='cluster')

@@ -26,7 +26,7 @@ scratch_path = '/pscratch/sd/j/jbbutler/'
 inst1_data_path = '/pscratch/sd/j/jbbutler/merra2_data_T2m_V10m_SLP_IWV/'
 tavg1_precip_data_path = '/pscratch/sd/j/jbbutler/merra2_data_precip_ivt/'
 tavg1_850hPa_wind_data_path = '/pscratch/sd/j/jbbutler/merra2_data_850hPa_wind/'
-inst3_omega850_data_path = '/pscratch/sd/j/jbbutler/merra2_data_omega/'
+inst3_omega_data_path = '/pscratch/sd/j/jbbutler/merra2_data_omega/'
 
 
 # load up all of the dataframes
@@ -328,20 +328,42 @@ def compute_max_SLPgrad(storm_da, var_da, area_da, ais_da):
 
     return max_grad
 
-def compute_max_landfalling_omega850(storm_da, var_da, area_da, ais_da):
+def compute_avg_landfalling_minomega(storm_da, var_da, area_da, ais_da):
+    '''
+    Function to compute the landfalling omega. Computed by finding the minimum
+    omega at each grid cell at the time of first landfall, and then finding
+    a spatial average of all of these minimum omegas. Minimum omega because
+    upward lift is defined as negative. This is motivated by Baiman 2023,
+    Figure 11, which shows that at landfall, omega varies with location and the height
+    of the atmosphere, so we should consider both different levels of the atmopshere
+    and spatial patterns.
+
+    Inputs:
+        storm_da (xarray.DataArray): the storm binary DataArray
+        var_da (xarray.DataArray): the omega DataArray, with 42 different pressure levels
+        area_da (xarray.DataArray): the data array with areas of grid cells
+        ais_da (xarray.DataArray): binary mask DataArray indicating where the AIS is
+        
+    Outputs:
+        omega_agg (float): the aggregate landfalling omega for that storm
+    '''
+    
     
     storm_ais_mask = ais_da.sel(lat=storm_da.lat, lon=storm_da.lon).Zwallybasins
     storm_da_ais = storm_da.where(storm_ais_mask, 0)
     first_landfall = np.min(storm_da.time[storm_da_ais.any(dim=['lat', 'lon'])].values)
+    storm_cell_areas = area_da.sel(lat=storm_da.lat, lon=storm_da.lon)
 
     var_da_subset = var_da.sel(lat=storm_da.lat, lon=storm_da.lon)
     var_da_subset_landfall = var_da_subset.sel(time=first_landfall)
+    var_da_agg = var_da_subset_landfall.min('lev')
     
-    var_da_subset_landfall = var_da_subset_landfall
-    storm_da_landfall = storm_da.sel(time=first_landfall)
-    max_omega850 = float((storm_da_landfall*var_da_subset_landfall).max())
+    storm_da_landfall = storm_da_ais.sel(time=first_landfall)
+    
+    tot_area = storm_da_landfall.dot(storm_cell_areas)
+    avg_min_omega = (storm_cell_areas.dot(storm_da_landfall*var_da_agg)/tot_area).values
 
-    return max_omega850
+    return avg_min_omega
 
 def compute_max_elevation_grad(storm_da, var_da):
 
@@ -598,18 +620,18 @@ labels_tavg1_wind = np.array(list(func_vars_dict.keys()))[:,0]
 
 ##################################### Compute omega quantities from inst3_3d_asm_Np #####################################
 
-print('Beginning masking of omega 850hPa from inst3_3d_asm_Np')
+print('Beginning masking of omega from inst3_3d_asm_Np')
 
 ticker = 'inst3_3d_asm_Np'
-# select the specific level we want (850 hPa)
-func_vars_dict = {('max_landfalling_omega850', 'OMEGA'): lambda storm_da, var_da, area_da: compute_max_landfalling_omega850(storm_da, -(var_da.sel(lev=850)), area_da, ais_mask)}
+
+func_vars_dict = {('avg_landfalling_minomega', 'OMEGA'): lambda storm_da, var_da, area_da: compute_avg_landfalling_minomega(storm_da, var_da, area_da, ais_mask)}
 
 summaries_lst_inst3_omega = []
 
 for i in tqdm(range(landfalling_storms.shape[0])):
     
     storm = landfalling_storms.iloc[i].data_array
-    summaries = compute_raw_summaries(storm, func_vars_dict, cell_areas, ticker, inst3_omega850_data_path)
+    summaries = compute_raw_summaries(storm, func_vars_dict, cell_areas, ticker, inst3_omega_data_path)
     summaries_lst_inst3_omega.append(summaries)
     
 labels_inst3_omega = np.array(list(func_vars_dict.keys()))[:,0]
