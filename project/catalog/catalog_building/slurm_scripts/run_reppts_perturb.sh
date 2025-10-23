@@ -2,6 +2,7 @@
 #SBATCH --job-name=AR_reppts
 #SBATCH --mail-type=ALL   
 #SBATCH --mail-user=butlerj@berkeley.edu
+#SBATCH -p high
 #SBATCH -o reppts_$1.out #File to which standard out will be written
 #SBATCH -e reppts_$1.err #File to which standard err will be written
 

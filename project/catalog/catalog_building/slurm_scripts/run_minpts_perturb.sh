@@ -2,6 +2,7 @@
 #SBATCH --job-name=AR_minpts
 #SBATCH --mail-type=ALL   
 #SBATCH --mail-user=butlerj@berkeley.edu
+#SBATCH -p high
 #SBATCH -o minpts_$1.out #File to which standard out will be written
 #SBATCH -e minpts_$1.err #File to which standard err will be written
 
