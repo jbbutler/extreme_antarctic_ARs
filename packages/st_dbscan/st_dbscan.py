@@ -10,12 +10,11 @@ import pandas as pd
 import math
 import os
 from pathlib import Path
-
-from utils import average_angle
-from utils import arctan
-from utils import retrieve_neighbors
+print(os.getcwd())
+from .utils import average_angle
+from .utils import arctan
+from .utils import retrieve_neighbors
 from sklearn.cluster import DBSCAN
-from sklearn.metrics.pairwise import haversine_distances
 from tqdm import tqdm
 
 class ST_DBSCAN:

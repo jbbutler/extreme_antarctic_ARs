@@ -4,27 +4,19 @@
 # September 2025
 
 import argparse
-import os
 from pathlib import Path
 import numpy as np
 import pandas as pd
-import dask
 import xarray as xr
-import seaborn as sns
-from sklearn.cluster import DBSCAN
-from sklearn.metrics.pairwise import haversine_distances
-import math
-from tqdm import tqdm
-import random
 
+import sys
+sys.path.append(str(Path(__file__).parents[3]/'packages'))
 
-import st_dbscan as st
-import utils
-from utils import arctan
-from utils import average_angle
-from utils import retrieve_neighbors
-from utils import construct_da
-from utils import is_landfalling
+from st_dbscan.st_dbscan import ST_DBSCAN
+from attribute_utils import is_landfalling
+from loading_utils import load_catalogs
+from loading_utils import load_ais
+from format_utils import construct_da_series
 
 # parsing arguments submitted by user, 
 parser = argparse.ArgumentParser(description="Parsing arguments to run the clustering algorithm.")
@@ -45,10 +37,9 @@ par_dict = {'seed':args.seed,
                      'min_pts': args.minpts}
 
 
-catalog_subset = utils.load_catalogs()
-ais_pts = utils.load_ais()
+catalog_subset = load_catalogs()
+ais_pts = load_ais()
 
-random.seed(par_dict['seed'])
 # hyperparameters
 synoptic_scale = 10**3
 km_per_radian = 6.371*(10**3) # arclength (km) on earth subtended by 1 radian
@@ -62,7 +53,7 @@ minpts_2 = par_dict['min_pts']
 n_rep_pts = par_dict['rep_pts']
 
 # instantiating the clustering object
-cluster_obj = st.ST_DBSCAN(eps_space_1, eps_space_2, eps_time, minpts_1, minpts_2, n_rep_pts)
+cluster_obj = ST_DBSCAN(eps_space_1, eps_space_2, eps_time, minpts_1, minpts_2, n_rep_pts, par_dict['seed'])
 # doing the spatiotemporal clustering
 cluster_infos_df = cluster_obj.fit(catalog_subset)
 
@@ -71,6 +62,11 @@ cluster_infos_df = cluster_obj.fit(catalog_subset)
 obj_subset = cluster_infos_df[['cluster', 'lats', 'lons', 'time']]
 obj_subset = obj_subset[obj_subset['cluster'] != -1]
 
-dataframe = utils.construct_dataframe(obj_subset, ais_pts)
-dataframe.to_hdf(args.save_path + f'/epsspace{par_dict['eps_space']}_epstime{par_dict['eps_time']}_minpts{par_dict['min_pts']}_nreppts{par_dict['rep_pts']}_seed{par_dict['seed']}.h5', key='df')
+storm_df = construct_da_series(obj_subset)
+# add whether each storm is landfalling
+storm_landfalls = storm_df.apply(is_landfalling)
+
+storm_df = pd.DataFrame({'data_array':storm_df, 'is_landfalling':storm_landfalls})
+
+storm_df.to_hdf(args.save_path + f'/epsspace{par_dict['eps_space']}_epstime{par_dict['eps_time']}_minpts{par_dict['min_pts']}_nreppts{par_dict['rep_pts']}_seed{par_dict['seed']}.h5', key='df')
 

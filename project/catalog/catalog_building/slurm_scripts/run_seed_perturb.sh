@@ -9,4 +9,6 @@
 source ~/.bashrc
 conda activate antarctic_ars
 
+cd ..
+
 python clustering.py --save_path '/scratch/users/butlerj/extreme_antarctic_ars/catalog_runs' --seed $1
