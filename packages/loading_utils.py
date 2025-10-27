@@ -68,3 +68,57 @@ def load_ais(points=False):
 
     return ais_mask
 
+def load_cell_areas():
+    '''
+    Load up the xarray.DataArray with the grid cell areas.
+
+    Inputs:
+        None
+    Outputs:
+        cell_areas (xarray.DataArray): the DataArray in our region of interest with the area of
+            each grid cell provided
+    '''
+
+    areas_path = home_dir/'project/input_data/area/MERRA2_gridarea.nc'
+    cell_areas = xr.open_dataset(areas_path)
+    cell_areas = cell_areas.cell_area
+
+    return cell_areas
+
+def load_elevation():
+    '''
+    Load up the xarray.DataArray with elevation at each grid cell.
+
+    Inputs:
+        None
+    Outputs:
+        elevations (xarray.DataArray): the DataArray in our region of interest with elevations at each grid cell.
+    '''
+
+    elevations_path = home_dir/'project/input_data/elevation/Elevation_MERRA2.nc'
+    elevations = xr.open_dataset(elevations_path)
+    elevations = elevations.PHIS
+
+    return elevations
+
+def grab_MERRA2_files(storm_da, ticker):
+    '''
+    Grab a list of the MERRA-2 files needed to mask a particular storm.
+
+    Inputs:
+        storm_da (xarray.DataArray): the AR's binary mask
+        ticker (string): the desired dataset's ID
+
+    Outputs:
+        fnames (list): list of the MERRA-2 file names
+    '''
+    
+    dates = np.unique(storm_da.time.dt.date.values)
+
+    fnames = []
+    for date in dates:
+        date_str = date.strftime('%Y%m%d')
+        fname = ticker + '.' + date_str + '.nc4.nc4'
+        fnames.append(fname)
+
+    return fnames
