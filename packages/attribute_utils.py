@@ -23,3 +23,4 @@ def is_landfalling(ar_da):
     is_landfalling = (ais_mask*ar_da).any().values
 
     return is_landfalling
+
