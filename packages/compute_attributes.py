@@ -100,7 +100,7 @@ def compute_anomaly_summaries(storm_da, func_vars_dict, climatology_dict, cell_a
         
     return summaries
 
-def compute_precip_summaries(storm_da, cell_areas, agg_func):
+def compute_precip_summaries(storm_da, cell_areas, agg_func, data_path):
     '''
     Function that computes summaries for precipitation variables. Precipitation requires
         separate treatment because even though the footprint of the AR may have left
@@ -123,7 +123,7 @@ def compute_precip_summaries(storm_da, cell_areas, agg_func):
     
     ds_lst = []
     for fname in fnames:
-        ds = xr.open_dataset(scratch_path + 'merra2_data_precip_ivt/' + fname)
+        ds = xr.open_dataset(data_path + fname)
         shifted = ds.assign_coords(time=ds.time - np.timedelta64(30, 'm'))
         upscaled = (shifted[var_lst]*60*60).resample(time='3h').sum() # don't remember why I did this...
         ds_lst.append(upscaled)

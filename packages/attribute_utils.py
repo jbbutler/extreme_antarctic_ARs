@@ -11,16 +11,17 @@ October 2025
 import xarray as xr
 import pandas as pd
 import numpy as np
-from loading_utils import load_ais
+from loading_utils import *
+from st_dbscan import utils
 
-ais_mask = loading_utils.load_ais()
+ais_mask = load_ais()
 ais_mask = ais_mask.assign_coords(lat=ais_mask.lat.round(5), 
                                   lon=ais_mask.lon.round(5))
-cell_areas = loading_utils.load_cell_areas()
+cell_areas = load_cell_areas()
 cell_areas = cell_areas.assign_coords(lat=cell_areas.lat.round(5), 
                                       lon=cell_areas.lon.round(5)) # this is to avoid -0 not matching 0
 
-elevation = loading_utils.load_elevation()
+elevation = load_elevation()
 
 def is_landfalling(ar_da):
     '''
@@ -52,7 +53,7 @@ def compute_max_area(ar_da, ais_da=None):
     ar_da_rounded = ar_da.assign_coords(lat=ar_da.lat.round(5), lon=ar_da.lon.round(5))
     
     if ais_da is not None:
-        storm_ais_mask = ais_da.sel(lat=ar_da_rounded.lat, lon=ar_da_rounded.lon).Zwallybasins
+        storm_ais_mask = ais_da.sel(lat=ar_da_rounded.lat, lon=ar_da_rounded.lon)
         storm_da_subset = ar_da_rounded.where(storm_ais_mask, 0)
     else:
         storm_da_subset = ar_da_rounded.copy()
@@ -88,7 +89,7 @@ def compute_mean_area(ar_da, ais_da=None):
     ar_da_rounded = ar_da.assign_coords(lat=ar_da.lat.round(5), lon=ar_da.lon.round(5))
     
     if ais_da is not None:
-        storm_ais_mask = ais_da.sel(lat=ar_da_rounded.lat, lon=ar_da_rounded.lon).Zwallybasins
+        storm_ais_mask = ais_da.sel(lat=ar_da_rounded.lat, lon=ar_da_rounded.lon)
         storm_da_subset = ar_da_rounded.where(storm_ais_mask, 0)
     else:
         storm_da_subset = ar_da_rounded.copy()
@@ -112,7 +113,7 @@ def compute_cumulative_spacetime(ar_da, ais_da=None):
     ar_da_rounded = ar_da.assign_coords(lat=ar_da.lat.round(5), lon=ar_da.lon.round(5))
     
     if ais_da is not None:
-        storm_ais_mask = ais_da.sel(lat=ar_da_rounded.lat, lon=ar_da_rounded.lon).Zwallybasins
+        storm_ais_mask = ais_da.sel(lat=ar_da_rounded.lat, lon=ar_da_rounded.lon)
         storm_da_subset = ar_da_rounded.where(storm_ais_mask, 0)
     else:
         storm_da_subset = ar_da_rounded.copy()
@@ -254,7 +255,7 @@ def compute_cumulative(storm_da, var_da, area_da, ais_da=None):
         cumulative_storm_val (float): cumulative quantity underneath footprint of storm
     '''
     if ais_da is not None:
-        storm_ais_mask = ais_da.sel(lat=storm_da.lat, lon=storm_da.lon).Zwallybasins
+        storm_ais_mask = ais_da.sel(lat=storm_da.lat, lon=storm_da.lon)
         storm_da_subset = storm_da.where(storm_ais_mask, 0)
     else:
         storm_da_subset = storm_da.copy() # just so we can work with the name storm_da_subset later
@@ -281,7 +282,7 @@ def compute_max_intensity(storm_da, var_da, area_da, ais_da=None):
         max_intensity_val (float): the value of the maximum intensity
     '''
     if ais_da is not None:
-        storm_ais_mask = ais_da.sel(lat=storm_da.lat, lon=storm_da.lon).Zwallybasins
+        storm_ais_mask = ais_da.sel(lat=storm_da.lat, lon=storm_da.lon)
         storm_da_subset = storm_da.where(storm_ais_mask, 0)
     else:
         storm_da_subset = storm_da.copy() # just so we can work with the name storm_da_subset later
@@ -306,7 +307,7 @@ def compute_min_SLP(storm_da, var_da, area_da, ais_da):
     '''
 
     # grab the intersection of storm with ocean and AIS, respectively
-    storm_ais_mask = ais_da.sel(lat=storm_da.lat, lon=storm_da.lon).Zwallybasins
+    storm_ais_mask = ais_da.sel(lat=storm_da.lat, lon=storm_da.lon)
     storm_ocean_mask = np.logical_not(storm_ais_mask)
     storm_da_ais = storm_da.where(storm_ais_mask, 0)
     storm_da_ocean = storm_da.where(storm_ocean_mask, 0)
@@ -333,7 +334,7 @@ def compute_max_SLPgrad(storm_da, var_da, area_da, ais_da):
         max_grad (float): the max SLP gradient value
     '''
 
-    storm_ais_mask = ais_da.sel(lat=storm_da.lat, lon=storm_da.lon).Zwallybasins
+    storm_ais_mask = ais_da.sel(lat=storm_da.lat, lon=storm_da.lon)
     storm_ocean_mask = np.logical_not(storm_ais_mask)
     storm_da_ais = storm_da.where(storm_ais_mask, 0)
     storm_da_ocean = storm_da.where(storm_ocean_mask, 0)
@@ -381,7 +382,7 @@ def compute_avg_landfalling_minomega(storm_da, var_da, area_da, ais_da):
         omega_agg (float): the aggregate landfalling omega for that storm
     '''
     
-    storm_ais_mask = ais_da.sel(lat=storm_da.lat, lon=storm_da.lon).Zwallybasins
+    storm_ais_mask = ais_da.sel(lat=storm_da.lat, lon=storm_da.lon)
     storm_da_ais = storm_da.where(storm_ais_mask, 0)
     first_landfall = np.min(storm_da.time[storm_da_ais.any(dim=['lat', 'lon'])].values)
     storm_cell_areas = area_da.sel(lat=storm_da.lat, lon=storm_da.lon)
@@ -439,7 +440,7 @@ def compute_max_landfalling_wind(storm_da, var_da, area_da, ais_da):
         max_wind (float): the maximum 850 hPa wind over ocean at time of first landfall
     '''
 
-    storm_ais_mask = ais_da.sel(lat=storm_da.lat, lon=storm_da.lon).Zwallybasins
+    storm_ais_mask = ais_da.sel(lat=storm_da.lat, lon=storm_da.lon)
     storm_ocean_mask = np.logical_not(storm_ais_mask)
     storm_da_ais = storm_da.where(storm_ais_mask, 0)
     storm_da_ocean = storm_da.where(storm_ocean_mask, 0)
@@ -474,7 +475,7 @@ def compute_avg_landfalling_wind(storm_da, var_da, area_da, ais_da):
         avg_wind (float): the average 850 hPa wind over ocean at time of first landfall
     '''
 
-    storm_ais_mask = ais_da.sel(lat=storm_da.lat, lon=storm_da.lon).Zwallybasins
+    storm_ais_mask = ais_da.sel(lat=storm_da.lat, lon=storm_da.lon)
     storm_ocean_mask = np.logical_not(storm_ais_mask)
     storm_da_ais = storm_da.where(storm_ais_mask, 0)
     storm_da_ocean = storm_da.where(storm_ocean_mask, 0)
@@ -513,7 +514,7 @@ def compute_average(storm_da, var_da, area_da, ais_da=None):
     '''
     
     if ais_da is not None:
-        storm_ais_mask = ais_da.sel(lat=storm_da.lat, lon=storm_da.lon).Zwallybasins
+        storm_ais_mask = ais_da.sel(lat=storm_da.lat, lon=storm_da.lon)
         storm_da_subset = storm_da.where(storm_ais_mask, 0)
     else:
         storm_da_subset = storm_da.copy()

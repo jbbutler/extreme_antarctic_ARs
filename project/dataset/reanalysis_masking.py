@@ -91,8 +91,8 @@ summaries_lst_tavg1_precip = []
 for i in tqdm(range(landfalling_storms.shape[0])):
     
     storm = landfalling_storms.iloc[i].data_array
-    summaries_ivt = compute_raw_summaries(storm, func_vars_dict, cell_areas, ticker, tavg1_precip_data_path, ivt=True)
-    summaries_precip = compute_precip_summaries(storm, cell_areas, lambda storm_da, var_da, area_da: compute_cumulative(storm_da, var_da, area_da, ais_mask))
+    summaries_ivt = compute_raw_summaries(storm, func_vars_dict, cell_areas, ticker, tavg1_precip_data_path, half_hour=True)
+    summaries_precip = compute_precip_summaries(storm, cell_areas, lambda storm_da, var_da, area_da: compute_cumulative(storm_da, var_da, area_da, ais_mask), tavg1_precip_data_path)
     summaries = summaries_ivt + summaries_precip
     summaries_lst_tavg1_precip.append(summaries)
     
@@ -110,7 +110,7 @@ summaries_lst_tavg1_wind = []
 for i in tqdm(range(landfalling_storms.shape[0])):
     
     storm = landfalling_storms.iloc[i].data_array
-    summaries = compute_raw_summaries(storm, func_vars_dict, cell_areas, ticker, tavg1_850hPa_wind_data_path, ivt=True)
+    summaries = compute_raw_summaries(storm, func_vars_dict, cell_areas, ticker, tavg1_850hPa_wind_data_path, half_hour=True)
     summaries_lst_tavg1_wind.append(summaries)
     
 labels_tavg1_wind = np.array(list(func_vars_dict.keys()))[:,0]
@@ -151,7 +151,6 @@ region_defs_coarser = {'West': [-150, -30],
 
 region_masks_coarser = find_region_masks(region_defs_coarser, ais_mask)
 
-landfalling_storms['region'] = landfalling_storms['data_array'].apply(lambda x: find_landfalling_region(x, region_masks))
 landfalling_storms['coarser_region'] = landfalling_storms['data_array'].apply(lambda x: find_landfalling_region(x, region_masks_coarser))
 
 landfalling_storms['trajectory'] = landfalling_storms['data_array'].apply(extract_trajectory)
@@ -164,4 +163,4 @@ landfalling_storms[labels_inst3_omega] = summaries_lst_inst3_omega
 
 
 # save the dataframe
-landfalling_storms.to_hdf(proj_path/'dataset/datasets/landfalling_storm_quantities_df.h5', key='df')
+landfalling_storms.to_hdf(home_dir/'project/dataset/datasets/landfalling_storm_quantities_df.h5', key='df')
