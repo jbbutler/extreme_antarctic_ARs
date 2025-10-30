@@ -63,8 +63,7 @@ parallel_func = partial(process_hyperparam_chunk,
                         kf=kf,
                         x_cols=args.x_cols, 
                         y_col=args.y_col, 
-                        load_training_path=load_path,
-                        center_response=args.center_response)
+                        load_training_path=load_path)
 
 if __name__ == '__main__':
     with multiprocessing.Pool(processes=ncores) as pool:
@@ -74,7 +73,7 @@ if __name__ == '__main__':
         print("Processing complete.")
 
     # grab the average predictive R2 from ols, as a baseline comparison
-    ols_avg_r2 = ols_pred(args.x_cols, args.y_col, load_path, kf, args.center_response)
+    ols_avg_r2 = ols_pred(args.x_cols, args.y_col, load_path, kf)
         
     full_df = pd.concat(results, ignore_index=True)
     full_df['test-r2-mean-ols'] = ols_avg_r2

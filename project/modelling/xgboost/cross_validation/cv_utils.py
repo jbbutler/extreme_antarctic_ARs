@@ -178,7 +178,7 @@ def process_hyperparam_chunk(lst, etas, booster, tree_method, nrounds, early_sto
     '''
 
     num_eta = len(etas)
-    results_lst = np.zeros((len(etas)*len(lst), len(lst[0]) + 3))
+    results_lst = np.zeros((len(etas)*len(lst), len(lst[0]) + 4))
 
     train_data = pd.read_csv(load_training_path, index_col='Label')
     X = train_data[x_cols]

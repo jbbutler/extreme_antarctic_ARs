@@ -3,7 +3,7 @@
 #SBATCH --nodes 1
 #SBATCH --output snow_xgb_round1.out
 #SBATCH --error snow_xgb_round1.err
-#SBATCH -p epurdom
+#SBATCH -p high
 #SBATCH --cpus-per-task 10
 #SBATCH --mail-type BEGIN,END,FAIL
 #SBATCH --mail-user butlerj@berkeley.edu
