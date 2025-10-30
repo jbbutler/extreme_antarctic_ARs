@@ -22,7 +22,7 @@ from cv_utils import ols_pred
 from functools import partial
 from sklearn.model_selection import KFold
 
-print('Running new script')
+from joblib import Parallel, delayed
 
 # parsing CV args to script
 parser = argparse.ArgumentParser(description='Parser for CV arguments in hyperparameter search.')
@@ -68,11 +68,11 @@ parallel_func = partial(process_hyperparam_chunk,
                         load_training_path=load_path)
 
 if __name__ == '__main__':
-    with multiprocessing.Pool(processes=ncores) as pool:
-        results_iterator = pool.imap_unordered(parallel_func, chunk_lst)
-        print(f"Starting parallel processing of {len(chunk_lst)} chunks on {ncores} cores...")
-        results = list(tqdm(results_iterator, total=len(chunk_lst)))
-        print("Processing complete.")
+    results = list(tqdm(Parallel(n_jobs=ncores, return_as="generator")(
+        delayed(parallel_func)(chunk) for chunk in chunk_lst),
+                       total=len(chunk_lst)
+                       )
+                  )
 
     # grab the average predictive R2 from ols, as a baseline comparison
     ols_avg_r2 = ols_pred(args.x_cols, args.y_col, load_path, kf)
