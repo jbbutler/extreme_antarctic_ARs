@@ -22,6 +22,8 @@ from cv_utils import ols_pred
 from functools import partial
 from sklearn.model_selection import KFold
 
+print('Running new script')
+
 # parsing CV args to script
 parser = argparse.ArgumentParser(description='Parser for CV arguments in hyperparameter search.')
 parser.add_argument('--x_cols', nargs='+', required=True, help='A list of feature columns to use.')
