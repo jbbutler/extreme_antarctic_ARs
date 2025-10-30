@@ -396,7 +396,7 @@ def compute_avg_landfalling_minomega(storm_da, var_da, area_da, ais_da):
     tot_area = storm_da_landfall.dot(storm_cell_areas)
     avg_min_omega = (storm_cell_areas.dot(storm_da_landfall*var_da_agg)/tot_area).values
 
-    return avg_min_omega
+    return float(avg_min_omega)
 
 def compute_max_elevation_grad(storm_da, var_da):
     '''

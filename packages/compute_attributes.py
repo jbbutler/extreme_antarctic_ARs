@@ -95,7 +95,9 @@ def compute_anomaly_summaries(storm_da, func_vars_dict, climatology_dict, cell_a
         actual_da = obs_ds[key[1]]
         climatology = climatology_dict[key[1]]
         climatology = climatology.assign_coords(lat=climatology.lat.round(5), lon=climatology.lon.round(5))
-        single_var_da = xr.apply_ufunc(lambda da, clim: da-clim, actual_da.groupby('time.month'), climatology).drop_vars('month')
+        
+        single_var_da = actual_da.groupby('time.month') - climatology
+        single_var_da = single_var_da.drop_vars('month')
         summaries.append(func(storm_da, single_var_da, cell_areas))
         
     return summaries
