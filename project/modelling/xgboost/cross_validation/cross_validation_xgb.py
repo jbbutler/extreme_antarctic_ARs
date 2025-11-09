@@ -16,11 +16,12 @@ from tqdm import tqdm
 import os
 import json
 import argparse
-import multiprocessing
 from cv_utils import process_hyperparam_chunk
 from cv_utils import ols_pred
 from functools import partial
 from sklearn.model_selection import KFold
+import multiprocessing
+
 
 # parsing CV args to script
 parser = argparse.ArgumentParser(description='Parser for CV arguments in hyperparameter search.')
@@ -63,18 +64,18 @@ parallel_func = partial(process_hyperparam_chunk,
                         kf=kf,
                         x_cols=args.x_cols, 
                         y_col=args.y_col, 
-                        load_training_path=load_path,
-                        center_response=args.center_response)
+                        load_training_path=load_path)
 
 if __name__ == '__main__':
+
     with multiprocessing.Pool(processes=ncores) as pool:
         results_iterator = pool.imap_unordered(parallel_func, chunk_lst)
         print(f"Starting parallel processing of {len(chunk_lst)} chunks on {ncores} cores...")
         results = list(tqdm(results_iterator, total=len(chunk_lst)))
         print("Processing complete.")
-
+    
     # grab the average predictive R2 from ols, as a baseline comparison
-    ols_avg_r2 = ols_pred(args.x_cols, args.y_col, load_path, kf, args.center_response)
+    ols_avg_r2 = ols_pred(args.x_cols, args.y_col, load_path, kf)
         
     full_df = pd.concat(results, ignore_index=True)
     full_df['test-r2-mean-ols'] = ols_avg_r2
