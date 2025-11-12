@@ -30,3 +30,66 @@ def display_catalog(catalog_df, nrows=None):
         return catalog_df.head(nrows).style.format({'data_array': lambda x: construct_thumbnail(x)}).format_index(precision=0)
     else:
         return catalog_df.style.format({'data_array': construct_thumbnail}).format_index(precision=0)
+
+def make_movie(stormtime_df, title):
+    '''
+    Function that constructs an animation of ARs in a stormtime version of the AR catalog.
+
+    Inputs
+        stormtime_df (pandas DataFrame): same as above
+        title (string): the title to print on the animation
+
+    Outputs
+        ani (Matplotlib Animation): an animation object, as far as I know it must be saved first in order to view it
+    '''
+
+    # define the times of the movie, and mappings between AR labels and colors
+    movie_times = pd.date_range(start=stormtime_df.time.min(), end=stormtime_df.time.max(), freq='3h')
+    unique_clusters = stormtime_df['label'].unique()
+    color_mapping = {unique_clusters[j]:prism(j/len(unique_clusters)) for j in range(len(unique_clusters)) }
+
+    # plot the jth frame of the movie (need as input to matplotlib animation constructor)
+    def plt_time(j):
+        time_pt = movie_times[j]
+
+        if (time_pt == stormtime_df.time).any():
+            dat = stormtime_df[stormtime_df['time'] == time_pt]
+            n_clusts = dat.shape[0]
+
+            for i in range(n_clusts):
+                cluster = dat['label'].iloc[i]
+                ax.scatter(dat['lon'].iloc[i], dat['lat'].iloc[i], transform=ccrs.PlateCarree(), s=1, color=color_mapping[cluster], label=str(cluster), zorder=30)
+        
+            ax.legend()
+
+        ax.set_extent([-180,180,-90,-39], ccrs.PlateCarree())
+        ice_shelf_poly = cfeature.NaturalEarthFeature('physical', 'antarctic_ice_shelves_polys', '50m',edgecolor='none',facecolor='lightcyan') # 10m, 50m, 110m
+        ax.add_feature(ice_shelf_poly,linewidth=3)
+        ice_shelf_line = cfeature.NaturalEarthFeature('physical', 'antarctic_ice_shelves_lines', '50m',edgecolor='black',facecolor='none') # 10m, 50m, 110m
+        ax.add_feature(ice_shelf_line,linewidth=1,zorder=13)
+        ax.coastlines(resolution='110m',linewidth=1,zorder=32)
+
+    
+        # Map extent 
+        theta = np.linspace(0, 2*np.pi, 100)
+        center, radius = [0.5, 0.5], 0.5
+        verts = np.vstack([np.sin(theta), np.cos(theta)]).T
+        circle = mpath.Path(verts * radius + center)
+        ax.set_boundary(circle, transform=ax.transAxes)
+        ax.gridlines(alpha=0.5, zorder=33)
+    
+        time_ts = pd.Timestamp(time_pt)
+        ax.set_title(f'{time_ts.month}/{time_ts.day}/{time_ts.year}, {time_ts.hour}:00')
+
+    # instantiate the animation
+    fig, ax = plt.subplots(figsize=(5,5), subplot_kw=dict(projection=ccrs.Stereographic(central_longitude=0., central_latitude=-90.)))
+    plt_time(0)
+    fig.suptitle(title, fontsize=16)
+
+    def update_img(i):
+        ax.clear()
+        plt_time(i)
+
+    ani = animation.FuncAnimation(fig, update_img, frames=len(movie_times))
+
+    return ani
