@@ -2,3 +2,6 @@
 /project/dataset/datasets/
 /project/catalog/epsspace0.5_epstime12_minpts5_nreppts10_seed12345.h5
 __pycache__
+
+# MyST build outputs
+_build
