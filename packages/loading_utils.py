@@ -10,6 +10,8 @@ from pathlib import Path
 import xarray as xr
 import os
 import numpy as np
+import earthaccess
+import ray
 
 cur_path = Path(__file__)
 home_dir = Path(cur_path).parents[1]
@@ -122,3 +124,36 @@ def grab_MERRA2_files(storm_da, ticker):
         fnames.append(fname)
 
     return fnames
+
+def grab_MERRA2_granules(storm_da, data_doi):
+    '''
+    Grab a list of data granules from a specific MERRA-2 dataset for an AR,
+        specifically pointers to granules stored in Amazon S3 bucket.
+
+    Inputs:
+        storm_da (xarray.DataArray) the AR's binary mask
+        data_doi (str): the doi of the MERRA-2 dataset
+
+    Outputs:
+        list of granule pointers
+    '''
+    first = np.min(storm_da.time.dt.date.to_numpy())
+    last = np.max(storm_da.time.dt.date.to_numpy())
+    # stream the data only between those two dates
+    granule_lst = earthaccess.search_data(doi=data_doi, 
+                                  temporal=(f'{first.year}-{first.month}-{first.day}', 
+                                            f'{last.year}-{last.month}-{last.day}'))
+
+    return granule_lst
+
+@ray.remote
+class EarthdataGatekeeper:
+    '''
+    A Ray Actor that makes the open requests to NASA's servers sequentially so that we don't get
+        rate limited by NASA.
+    '''
+    def __init__(self):
+        self.auth = earthaccess.login()
+    
+    def get_granule_pointers(self, granule_lst):
+        return earthaccess.open(granule_lst, show_progress=False)
