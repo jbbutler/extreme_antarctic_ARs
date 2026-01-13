@@ -14,16 +14,7 @@ import numpy as np
 from loading_utils import *
 from st_dbscan import utils
 
-ais_mask = load_ais()
-ais_mask = ais_mask.assign_coords(lat=ais_mask.lat.round(5), 
-                                  lon=ais_mask.lon.round(5))
-cell_areas = load_cell_areas()
-cell_areas = cell_areas.assign_coords(lat=cell_areas.lat.round(5), 
-                                      lon=cell_areas.lon.round(5)) # this is to avoid -0 not matching 0
-
-elevation = load_elevation()
-
-def is_landfalling(ar_da):
+def is_landfalling(ar_da, ais_mask):
     '''
     Function to determine if a given AR has made landfall on the AIS.
 
@@ -38,7 +29,7 @@ def is_landfalling(ar_da):
 
     return is_landfalling
 
-def compute_max_area(ar_da, ais_da=None):
+def compute_max_area(ar_da, area_da, ais_da=None):
     '''
     A function that, given a binary mask DataArray for a storm, computes the max area occupied over lifetime
 
@@ -58,7 +49,7 @@ def compute_max_area(ar_da, ais_da=None):
     else:
         storm_da_subset = ar_da_rounded.copy()
     
-    grid_area_storm = cell_areas.sel(lat=storm_da_subset.lat, lon=storm_da_subset.lon)
+    grid_area_storm = area_da.sel(lat=storm_da_subset.lat, lon=storm_da_subset.lon)
     max_area = float(storm_da_subset.dot(grid_area_storm).max().values/(1000**2))
     
     return max_area
@@ -75,7 +66,7 @@ def compute_max_southward_extent(ar_da):
     ar_da_rounded = ar_da.assign_coords(lat=ar_da.lat.round(5), lon=ar_da.lon.round(5))
     return np.min(ar_da.lat.values)
 
-def compute_mean_area(ar_da, ais_da=None):
+def compute_mean_area(ar_da, cell_areas, ais_da=None):
     '''
     A function that, given a binary mask DataArray for a storm, computes the mean area occupied over lifetime
 
@@ -98,7 +89,7 @@ def compute_mean_area(ar_da, ais_da=None):
     mean_area = float(storm_da_subset.dot(grid_area_storm).mean().values/(1000**2))
     return mean_area
 
-def compute_cumulative_spacetime(ar_da, ais_da=None):
+def compute_cumulative_spacetime(ar_da, cell_areas, ais_da=None):
     '''
     A function that, given a binary mask DataArray for a storm, computes the cumulative amount
         of space and time the storm spent over the AIS (measured in km^2 x days)
@@ -158,7 +149,7 @@ def add_end_date(ar_da):
     end = ar_da.time.max().values
     return end
 
-def find_landfalling_region(ar_da, region_masks):
+def find_landfalling_region(ar_da, cell_areas, region_masks):
     '''
     Finding the region in which the storm makes landfall. Regions provided by David Mikolajczyk
     at UW Madison, with additional regions for the RIS, FRIS, and completing the connection between
@@ -174,7 +165,7 @@ def find_landfalling_region(ar_da, region_masks):
 
     region_CLA = {}
     for label, mask in region_masks.items():
-        region_CLA[label] = compute_cumulative_spacetime(ar_da, ais_da=mask)
+        region_CLA[label] = compute_cumulative_spacetime(ar_da, cell_areas=cell_areas, ais_da=mask)
 
     region_CLA = pd.Series(region_CLA)
     winning_region = region_CLA.idxmax()
@@ -360,7 +351,7 @@ def compute_max_SLPgrad(storm_da, var_da, area_da, ais_da):
     magnitude = np.sqrt(lon_partials**2 + lat_partials**2)
     max_grad = np.max(magnitude.values*storm_da_ocean_landfall.values)
 
-    return max_grad
+    return float(max_grad)
 
 def compute_avg_landfalling_minomega(storm_da, var_da, area_da, ais_da):
     '''

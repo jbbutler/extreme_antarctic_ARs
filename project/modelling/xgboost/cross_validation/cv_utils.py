@@ -10,8 +10,25 @@ import xgboost as xgb
 import numpy as np
 from sklearn.model_selection import KFold
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error
-import ray
+
+def get_shrinkage_factor(y_pred, y_true):
+    '''
+    Helper function to implement predictive shrinkage. Returns
+        a shrinkage factor.
+
+    Inputs:
+        y_pred (np.array): the predictions we wish to shrink
+        y_true (np.array): the true y's (usually heldout y's in training)
+
+    Outputs:
+        shrinkage_factor (float): the shrinkage factor
+    '''
+
+    ols = LinearRegression(fit_intercept=False)
+    fit = ols.fit(X=y_pred.reshape(-1,1), y=y_true)
+    shrinkage_factor = fit.coef_[0]
+
+    return shrinkage_factor
 
 def predictive_r2(y_pred, y_true):
     '''
@@ -34,40 +51,47 @@ def predictive_r2(y_pred, y_true):
 
     return r2
 
-def ols_pred(x_cols, y_col, load_training_path, kf):
+def ols_pred(data_CV_splits, shrink=False):
     '''
     Function to get the average predictive R-squared using OLS. Used to as a baseline with which
         to compare the performance of xgboost in the our hyperparameter selection procedure.
 
     Inputs:
-        x_cols (list of strings): a list of the columns names to use as x-variables
-        y_col (str): the column name of the desired outcome variable
-        load_training_path (str): the path where the training data can be accessed from
-        kf (sklearn.ModelSelection.KFold): a k-fold object specifying how the data will be split for CV
+        data_CV_splits (list of dicts): for each train/validation split of data, stores validation predictors and
+            outcomes to be used for training and evaluation, as well as predictions from intermediate models (like CLA for snow)
+        shrink (bool): whether to use predictive shrinkage
     Outputs:
         avg_val_r2 (float): the average validation error across folds in CV
     '''
 
-    train_data = pd.read_csv(load_training_path, index_col='Label')
-    X = train_data[x_cols]
-    y = train_data[y_col]
-    
-    pred_r2_folds = []
-    for train_index, test_index in kf.split(X, y):
-        X_train, X_test = X.iloc[train_index], X.iloc[test_index]
-        y_train, y_test = y.iloc[train_index], y.iloc[test_index]
-        y_train_centered = y_train - y_train.mean()
+    pred_folds = []
+    val_folds = []
+    for split in data_CV_splits:
+        X_train, X_val = split['X_train'], split['X_val']
+        y_train_centered, y_val_centered = split['y_train_centered'], split['y_val_centered']
     
         reg = LinearRegression().fit(X_train, y_train_centered)
-        y_pred = reg.predict(X_test) + y_train.mean()
+        y_pred = reg.predict(X_val)
+        pred_folds.append(y_pred)
+        val_folds.append(y_val_centered)
 
-        pred_r2_folds.append(predictive_r2(y_pred, y_test))
+    shrinkage_factor = 1
+
+    if shrink:
+        pred_folds_flat = np.concatenate(pred_folds)
+        val_folds_flat = np.concatenate(val_folds)
+        shrinkage_factor = get_shrinkage_factor(pred_folds_flat, val_folds_flat)
+
+    pred_r2_folds = []
+
+    for k in range(len(data_CV_splits)):
+        pred_r2_folds.append(predictive_r2(shrinkage_factor*pred_folds[k], val_folds[k]))
 
     avg_val_r2 = np.mean(pred_r2_folds)
 
     return float(avg_val_r2)
 
-def kfold_cv(params, nrounds, early_stopping_rounds, kf, X, y):
+def kfold_cv(params, nrounds, early_stopping_rounds, data_CV_splits, shrink):
     '''
     A function that mimics the behavior of xgb.cv(), but allows us to center the response
         variables with each training fold's mean in each iteration of k-fold CV.
@@ -75,35 +99,32 @@ def kfold_cv(params, nrounds, early_stopping_rounds, kf, X, y):
     params (dict): 
     '''
 
-    fold_train_means = []
-    y_val_original = []
-    dtrain_list = []
-    dval_list = []
-    model_list = []
-    # first, build train and validation datasets, with training mean-subtracted responses
-    # build a model for each train/validation split in 5 fold CV
-    for train_idx, val_idx in kf.split(X, y):
-        X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
-        y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
-        y_val_original.append(y_val)
+    # flag to see if residuals are needed
+    using_lm = ('lm_val_preds' in data_CV_splits[0].keys())
+
+    # by default, xgb will be trained on centered outcome, unless
+    # we must train on residuals instead
+    y_lab = 'y_train_centered'
+    if using_lm:
+        y_lab = 'y_train_resid'
+    
+    dtrain_lst = []
+    dval_lst = []
+    xgbmodel_lst = []
+
+    for split in data_CV_splits:
         
-        y_train_mean_fold = np.mean(y_train)
-        fold_train_means.append(y_train_mean_fold)
+        dtrain_fold = xgb.DMatrix(split['X_train'], label=split[y_lab])
+        dval_fold = xgb.DMatrix(split['X_val'], label=split['y_val_centered'])
         
-        y_train_centered = y_train - y_train_mean_fold
-        y_val_centered = y_val - y_train_mean_fold
-        
-        dtrain_fold = xgb.DMatrix(X_train, label=y_train_centered)
-        dval_fold = xgb.DMatrix(X_val, label=y_val_centered)
-        
-        dtrain_list.append(dtrain_fold)
-        dval_list.append(dval_fold)
+        dtrain_lst.append(dtrain_fold)
+        dval_lst.append(dval_fold)
 
         model = xgb.Booster(
             params,
             [dtrain_fold, dval_fold]
         )
-        model_list.append(model)
+        xgbmodel_lst.append(model)
 
     # instantiating variables to track performance as trees are incrementally added
     best_avg_r2 = -np.inf
@@ -111,25 +132,44 @@ def kfold_cv(params, nrounds, early_stopping_rounds, kf, X, y):
     consecutive_no_improve = 0
     
     # store results from the best iteration
-    best_indiv_r2_scores = [0]*kf.get_n_splits()
+    best_indiv_r2_scores = [0]*len(data_CV_splits)
 
     for i in range(nrounds):
         r2_scores_round = []
         rmse_scores_round = []
         # for each of k many train-validation split of the data
-        for k in range(kf.get_n_splits()):
-            model_list[k].update(dtrain_list[k], i)
-
-            # get predictions for this model on the validation set
-            y_pred_centered = model_list[k].predict(dval_list[k])
-
-            # calculate the R-squared
-            y_true_original = y_val_original[k]
-            y_pred_original = y_pred_centered+fold_train_means[k]
+        y_pred_folds = []
+        y_val_folds = []
+        for k in range(len(data_CV_splits)):
             
-            r2 = predictive_r2(y_pred_original, y_true_original)
+            data_CV_split = data_CV_splits[k]
+            xgbmodel_lst[k].update(dtrain_lst[k], i)
+
+            y_pred_centered = xgbmodel_lst[k].predict(dval_lst[k])
+            # if there are linear model preds to consider, add to the predictions
+            if using_lm:
+                y_pred_centered = data_CV_split['lm_val_preds'] + y_pred_centered
+
+            y_pred_folds.append(y_pred_centered)
+            y_val_folds.append(data_CV_split['y_val_centered'])
+            
+
+        shrinkage_factor = 1 # by default, no predictive shrinkage
+        if shrink:
+            y_pred_flat = np.concatenate(y_pred_folds)
+            y_val_flat = np.concatenate(y_val_folds)
+            shrinkage_factor = get_shrinkage_factor(y_pred_flat, y_val_flat)
+
+        for k in range(len(data_CV_splits)):
+            
+            data_CV_split = data_CV_splits[k]
+
+            y_val = y_val_folds[k]
+            y_pred = y_pred_folds[k]*shrinkage_factor
+            # calculate the R-squared     
+            r2 = predictive_r2(y_pred, y_val)
             r2_scores_round.append(r2)
-            rmse = np.sqrt(mean_squared_error(y_true_original, y_pred_original))
+            rmse = np.sqrt(np.mean((y_pred - y_val)**2))
             rmse_scores_round.append(rmse)
         avg_r2_round = np.mean(r2_scores_round)
 
@@ -137,6 +177,7 @@ def kfold_cv(params, nrounds, early_stopping_rounds, kf, X, y):
         if avg_r2_round > best_avg_r2:
             best_avg_r2 = avg_r2_round
             best_iteration = i
+            best_shrinkage = shrinkage_factor
             best_indiv_r2_scores = r2_scores_round
             best_indiv_rmse_scores = rmse_scores_round
             consecutive_no_improve = 0
@@ -148,12 +189,13 @@ def kfold_cv(params, nrounds, early_stopping_rounds, kf, X, y):
             break
             
     return {'n_boost': best_iteration,
+            'shrinkage_factor': best_shrinkage,
             'val-r2-mean': best_avg_r2,
             'val-r2-std': np.std(best_indiv_r2_scores),
             'val-rmse-mean': np.mean(best_indiv_rmse_scores),
             'val-rmse-std': np.std(best_indiv_rmse_scores)}
 
-def process_hyperparam_chunk(lst, etas, booster, tree_method, nrounds, early_stopping_rounds, kf, x_cols, y_col, load_training_path):
+def process_hyperparam_chunk(lst, etas, booster, tree_method, nrounds, early_stopping_rounds, data_CV_splits, shrink, seed):
     '''
     A helper function for xgboost hyperparameter selection procedure. Given a list of combinations of
         all other hyperparams other than the learning rate and number of boosting rounds, as well
@@ -169,9 +211,8 @@ def process_hyperparam_chunk(lst, etas, booster, tree_method, nrounds, early_sto
         nrounds (int): number of boosting rounds
         early_stopping_rounds (int): number of rounds to check for improvement in validation error
         kf (sklearn.ModelSelection.KFold): a k-fold object specifying how the data will be split for CV
-        x_cols (list of str): the columns to use in the predictor space
-        y_col (str): the column to use as the outcome
-        load_training_path (str): path to the training data
+        data_CV_splits (list of dicts): for each train/validation split of data, stores validation predictors and
+            outcomes to be used for training and evaluation, as well as predictions from intermediate models (like CLA for snow)
         
     Ouputs:
         A pandas.DataFrame where each row is a different combo of hyperparams in this chunk, and includes
@@ -179,13 +220,13 @@ def process_hyperparam_chunk(lst, etas, booster, tree_method, nrounds, early_sto
     '''
 
     num_eta = len(etas)
-    results_lst = np.zeros((len(etas)*len(lst), len(lst[0]) + 4))
+    results_lst = np.zeros((len(etas)*len(lst), len(lst[0]) + 5))
 
-    train_data = pd.read_csv(load_training_path, index_col='Label')
-    X = train_data[x_cols]
-    y = train_data[y_col]
-
-    columns = ['gamma', 'max_depth', 'reg_lambda', 'min_child_weight', 'eta', 'num_boost', 'val_rmse_mean', 'val_r2_mean']
+    columns = ['gamma', 'max_depth', 
+               'reg_lambda', 'min_child_weight', 
+               'subsample_frac', 'eta', 
+               'num_boost', 'shrinkage_factor', 
+               'val_rmse_mean', 'val_r2_mean']
 
     # for every set of "other" hyperparams
     for i, param_set in enumerate(lst):
@@ -197,14 +238,20 @@ def process_hyperparam_chunk(lst, etas, booster, tree_method, nrounds, early_sto
                    max_depth=param_set[1],
                    reg_lambda=param_set[2],
                    min_child_weight=param_set[3],
+                   subsample=param_set[4],
                    tree_method=tree_method,
                    objective='reg:squarederror',
-                   eval_metric='rmse')
+                   eval_metric='rmse',
+                   seed=seed)
 
-            cv_res = kfold_cv(params, nrounds, early_stopping_rounds, kf, X, y)
+            cv_res = kfold_cv(params, nrounds, early_stopping_rounds, data_CV_splits, shrink)
             
             
-            results_lst[i*num_eta + j,:] = np.array(list(param_set) + [eta, cv_res['n_boost'], cv_res['val-rmse-mean'], cv_res['val-r2-mean']])
+            results_lst[i*num_eta + j,:] = np.array(list(param_set) + [eta, 
+                                                                       cv_res['n_boost'], 
+                                                                       cv_res['shrinkage_factor'], 
+                                                                       cv_res['val-rmse-mean'], 
+                                                                       cv_res['val-r2-mean']])
 
     results_df = pd.DataFrame(results_lst, columns=columns)
 

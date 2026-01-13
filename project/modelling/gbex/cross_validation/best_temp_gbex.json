@@ -1,0 +1,11 @@
+{
+    "depth_sigma": 2.0,
+    "depth_gamma": 0.0,
+    "lambda_scale": 0.1,
+    "lambda_ratio": 1.0,
+    "min_leaf_sigma": 7.0,
+    "min_leaf_gamma": 10.0,
+    "sf": 0.4,
+    "mean_cv_loss": 1.6691210705143789,
+    "num_trees": 3.0
+}
