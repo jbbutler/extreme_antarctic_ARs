@@ -1,15 +1,8 @@
 .ipynb_checkpoints
-/project/dataset/datasets/
-/project/catalog/epsspace0.5_epstime12_minpts5_nreppts10_seed12345.h5
-/project/catalog/subset_storms.h5
-/project/dataset/streaming/climatology.nc4
-/paper/exports/
 __pycache__
-/project/modelling/gbex/cross_validation/rounds_extreme/
-/project/modelling/gbex/cross_validation/rounds_intermediate/
-/project/modelling/xgboost/cross_validation/rounds/
-/project/modelling/xgboost/plots/
 
+# output files (pdf exports, plots, etc.)
+# outputs/
 
 # MyST build outputs
 _build
