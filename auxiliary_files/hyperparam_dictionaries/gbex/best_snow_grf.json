@@ -1,0 +1,7 @@
+{
+    "num_trees": 1000.0,
+    "min_node_size": 10.0,
+    "sample_frac": 0.8,
+    "alpha": 0.25,
+    "mean_cv_loss": 0.0502642536229039
+}
