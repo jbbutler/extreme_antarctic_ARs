@@ -1,0 +1,49 @@
+name: extreme_antarctic_ars
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  # core languages
+  - python>=3.10
+  - r-base>=4.2
+
+  # python packages
+  - numpy
+  - pandas
+  - xarray
+  - ray-default
+  - tqdm
+  - huggingface_hub
+  - seaborn
+  - matplotlib
+  - scipy
+  - xgboost
+  - ipython
+  - scikit-learn
+  - ipykernel
+  - shap
+
+  # R packages
+  - r-tidyverse
+  - r-ggplot2
+  - r-here
+  - r-grf
+  - r-jsonlite
+  - r-erf
+  - r-quantreg
+  - r-dplyr
+  - r-latex2exp
+  - r-cowplot
+  - r-argparse
+  - r-caret
+  - r-foreach
+  - r-dosnow
+  - r-pacman
+  - r-irkernel
+  
+  - pip
+  - pip:
+    - earthaccess
+    - jupyterlab_myst
+    - jupyter-keepalive
+    - mystmd
