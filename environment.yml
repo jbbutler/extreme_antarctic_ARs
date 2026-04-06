@@ -5,45 +5,45 @@ channels:
 dependencies:
   # core languages
   - python=3.12
-  - r-base=4.5
+  #- r-base=4.5
 
   # python packages
-  - numpy=2.4.*
-  - pandas=3.0.*
-  - xarray=2026.2.*
-  - tqdm
-  - huggingface_hub=1.9.*
-  - seaborn=0.13.*
-  - matplotlib=3.10.*
-  - scipy=1.17.*
-  - xgboost=3.0.*
-  - ipython
-  - scikit-learn=1.8.*
-  - ipykernel
-  - shap=0.48.*
+#  - numpy=2.4.*
+#  - pandas=3.0.*
+#  - xarray=2026.2.*
+#  - tqdm
+#  - huggingface_hub=1.9.*
+#  - seaborn=0.13.*
+#  - matplotlib=3.10.*
+#  - scipy=1.17.*
+#  - xgboost=3.0.*
+#  - ipython
+#  - scikit-learn=1.8.*
+#  - ipykernel
+#  - shap=0.48.*
 
   # R packages
-  - r-tidyverse
-  - r-ggplot2
-  - r-here
-  - r-grf
-  - r-jsonlite
-  - r-erf
-  - r-quantreg
-  - r-dplyr
-  - r-latex2exp
-  - r-cowplot
-  - r-argparse
-  - r-caret
-  - r-foreach
-  - r-dosnow
-  - r-pacman
-  - r-irkernel
+#  - r-tidyverse
+#  - r-ggplot2
+#  - r-here
+#  - r-grf
+#  - r-jsonlite
+#  - r-erf
+#  - r-quantreg
+#  - r-dplyr
+#  - r-latex2exp
+#  - r-cowplot
+#  - r-argparse
+#  - r-caret
+#  - r-foreach
+#  - r-dosnow
+#  - r-pacman
+#  - r-irkernel
   
   - pip
   - pip:
-    - earthaccess
+    #- earthaccess
     - jupyterlab_myst
     - jupyter-keepalive
     - mystmd
-    - ray
+    #- ray
