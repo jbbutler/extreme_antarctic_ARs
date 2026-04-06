@@ -4,24 +4,23 @@ channels:
   - defaults
 dependencies:
   # core languages
-  - python>=3.10
-  - r-base>=4.2
+  - python=3.12
+  - r-base=4.5
 
   # python packages
-  - numpy
-  - pandas
-  - xarray
-  - ray-default
+  - numpy=2.4.*
+  - pandas=3.0.*
+  - xarray=2026.2.*
   - tqdm
-  - huggingface_hub
-  - seaborn
-  - matplotlib
-  - scipy
-  - xgboost
+  - huggingface_hub=1.9.*
+  - seaborn=0.13.*
+  - matplotlib=3.10.*
+  - scipy=1.17.*
+  - xgboost=3.0.*
   - ipython
-  - scikit-learn
+  - scikit-learn=1.8.*
   - ipykernel
-  - shap
+  - shap=0.48.*
 
   # R packages
   - r-tidyverse
@@ -47,3 +46,4 @@ dependencies:
     - jupyterlab_myst
     - jupyter-keepalive
     - mystmd
+    - ray
