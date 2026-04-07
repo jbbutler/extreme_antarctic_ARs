@@ -1,6 +1,5 @@
 name: extreme_antarctic_ars
 channels:
-  - conda-forge
   - defaults
 dependencies:
   # core languages
@@ -8,19 +7,19 @@ dependencies:
   #- r-base=4.5
 
   # python packages
-#  - numpy=2.4.*
-#  - pandas=3.0.*
-#  - xarray=2026.2.*
-#  - tqdm
-#  - huggingface_hub=1.9.*
-#  - seaborn=0.13.*
-#  - matplotlib=3.10.*
-#  - scipy=1.17.*
-#  - xgboost=3.0.*
-#  - ipython
-#  - scikit-learn=1.8.*
-#  - ipykernel
-#  - shap=0.48.*
+  - numpy=2.4.*
+  - pandas=3.0.*
+  - xarray=2026.2.*
+  - tqdm
+  - huggingface_hub=1.9.*
+  - seaborn=0.13.*
+  - matplotlib=3.10.*
+  - scipy=1.17.*
+  - xgboost=3.0.*
+  - ipython
+  - scikit-learn=1.8.*
+  - ipykernel
+  - shap=0.48.*
 
   # R packages
 #  - r-tidyverse
@@ -42,7 +41,7 @@ dependencies:
   
   - pip
   - pip:
-    #- earthaccess
+    - earthaccess==0.16.*
     - jupyterlab_myst
     - jupyter-keepalive
     - mystmd

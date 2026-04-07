@@ -1,0 +1,26 @@
+{
+    "etas": [
+        0.2
+    ],
+    "gammas": [
+        0.3,
+        0.4
+    ],
+    "max_depth": [
+        7
+    ],
+    "lambdas": [
+        3
+    ],
+    "min_child_weights": [
+        0.3,
+        0.5
+    ],
+    "subsample_fracs": [
+        0.1
+    ],
+    "nrounds": 10,
+    "early_stopping_rounds": 5,
+    "tree_method": "exact",
+    "booster": "gbtree"
+}

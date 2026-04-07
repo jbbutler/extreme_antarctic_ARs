@@ -16,12 +16,15 @@ from tqdm import tqdm
 import os
 import json
 import argparse
-from cv_utils import *
+from cv_utils_xgb import *
 from functools import partial
 from sklearn.model_selection import KFold
 from sklearn.linear_model import LinearRegression
 import multiprocessing
-from cv_constants import XGB_SEED, FOLD_SEED
+
+# seed constants
+XGB_SEED = 123456
+FOLD_SEED = 554433
 
 # parsing CV args to script
 parser = argparse.ArgumentParser(description='Parser for CV arguments in hyperparameter search.')
@@ -33,11 +36,11 @@ parser.add_argument('--save_name', type=str, required=True, help='Name of file w
 parser.add_argument('--ncores', type=int, help='How many cores to use in the parallelization.')
 parser.add_argument('--shrink', action='store_true', help='Should we use predictive shrinkage?')
 
-load_path = Path(os.getcwd()).parents[2]/Path('dataset/datasets/model_ready/train.csv')
+load_path = '../../../outputs/data_products/train.csv'
 
 args = parser.parse_args()
 
-with open(os.getcwd() + '/rounds/' + args.hyperparam_json, 'r') as file:
+with open('../../../auxiliary_files/hyperparam_dictionaries/xgboost/' + args.hyperparam_json, 'r') as file:
     hyperparam_dict = json.load(file)
 hyperparams_lst = [lst for key, lst in hyperparam_dict.items() if key in ['gammas', 'max_depth', 'lambdas', 'min_child_weights', 'subsample_fracs']]
 hyperparams_lst = list(product(*hyperparams_lst))
@@ -122,4 +125,4 @@ if __name__ == '__main__':
     full_df = pd.concat(results, ignore_index=True)
     full_df['test-r2-mean-ols-shrunk'] = ols_avg_r2_shrunk
     full_df['test-r2-mean-ols'] = ols_avg_r2_noshrunk
-    full_df.to_csv(os.getcwd() + '/rounds/' + args.save_name)
+    full_df.to_csv('../../../outputs/model_fitting/xgboost/cross_validation/' + args.save_name)
