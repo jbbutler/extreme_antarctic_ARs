@@ -32,12 +32,13 @@ parser$add_argument('--save_name', required=TRUE, help='The file to save hyperpa
 args <- parser$parse_args()
 
 # first, grab training data and fit intermediate threshold model
-train_dat_full <- read_csv(paste0(root_dir, '/project/dataset/datasets/model_ready/train.csv'))
+train_dat_full <- read_csv(paste0(root_dir, '/outputs/data_products/train.csv'))
 X <- train_dat_full %>% select(args$x_cols)
 y <- train_dat_full %>% select(args$y_col) %>% pull()
 
-tau_0 <- 0.7 #lower from 0.8 because otherwise only 60 exceedances!
-grf_param_path <- paste0(root_dir, '/project/modelling/gbex/cross_validation/', args$grf_hyperparam_json)
+tau_0 <- 0.7 # ensure the same quantile is used that was trained on!
+grf_param_path <- paste0(root_dir, '/auxiliary_files/hyperparam_dictionaries/gbex/', args$grf_hyperparam_json)
+
 best_grf_params <- fromJSON(grf_param_path)
 
 # fit the best grf model
@@ -60,7 +61,7 @@ X <- X[diffs > 0, ] # take the corresponding covariates as well
 
 # load up and process the hyperparam grid JSON
 hyperparam_path <- paste0(root_dir,
-                          '/project/modelling/gbex/cross_validation/rounds_extreme/',
+                          '/auxiliary_files/hyperparam_dictionaries/gbex/',
                           args$hyperparam_json)
 model_params <- fromJSON(hyperparam_path)
 max_trees <- model_params$max_trees
@@ -121,4 +122,4 @@ close(pb)
 stopCluster(clust)
 
 # save the loss alongside grid
-write_csv(cv_gpd_results, paste0('rounds_extreme/', args$save_name))
+write_csv(cv_gpd_results, paste0(root_dir, '/outputs/model_fitting/gbex/cross_validation/', args$save_name))
