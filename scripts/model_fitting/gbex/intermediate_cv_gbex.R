@@ -15,7 +15,7 @@ library(here)
 
 root_dir <- here()
 
-source('intermediate_cv_utils.R')
+source('intermediate_cv_utils_gbex.R')
 
 parser <- ArgumentParser(description = 'A script to run a hyperparameter search for modelling intermediate conditional quantiles.')
 parser$add_argument('--x_cols', required=TRUE, nargs='+', help='A list of predictor variables.')
@@ -30,7 +30,7 @@ set.seed(56789)
 
 args <- parser$parse_args()
 
-train_dat_full <- read_csv(paste0(root_dir, '/project/dataset/datasets/model_ready/train.csv'))
+train_dat_full <- read_csv(paste0(root_dir, '/outputs/data_products/train.csv'))
 X <- train_dat_full %>% select(args$x_cols)
 y <- train_dat_full %>% select(args$y_col) %>% pull()
 
@@ -39,7 +39,7 @@ cv_folds <- createFolds(y, k=n_folds, returnTrain=FALSE)
 
 # load up and process the hyperparam grid JSON
 hyperparam_path <- paste0(root_dir,
-                          '/project/modelling/gbex/cross_validation/rounds_intermediate/',
+                          '/auxiliary_files/hyperparam_dictionaries/gbex/',
                           args$hyperparam_json)
 model_params <- fromJSON(hyperparam_path)
 param_grid <- expand.grid(model_params[c('num_trees', 'min_node_size', 'sample_frac', 'alpha')])
@@ -108,4 +108,4 @@ close(pb)
 stopCluster(clust)
 
 # save the loss alongside grid
-write_csv(cv_grid_results, paste0('rounds_intermediate/', args$save_name))
+write_csv(cv_grid_results, paste0(root_dir, '/outputs/model_fitting/gbex/cross_validation/', args$save_name))

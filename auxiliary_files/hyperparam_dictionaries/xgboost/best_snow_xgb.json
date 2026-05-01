@@ -1,10 +1,1 @@
-{
-    "gamma": 0.15,
-    "max_depth": 8.0,
-    "reg_lambda": 10.0,
-    "min_child_weight": 0.2,
-    "subsample_frac": 0.2,
-    "eta": 0.05,
-    "num_boost": 231.0,
-    "shrinkage_factor": 0.995843272061652
-}
+{"gamma":0.0075,"max_depth":3.0,"reg_lambda":0.75,"min_child_weight":5.0,"subsample_frac":0.9,"eta":0.075,"num_boost":123.0,"shrinkage_factor":1.0018205032}
