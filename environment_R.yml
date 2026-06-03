@@ -1,0 +1,25 @@
+name: extreme_antarctic_ars_R
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  # core languages
+  - r-base=4.3.*
+
+  # R packages
+  - r-tidyverse
+  - r-ggplot2
+  - r-here
+  - r-grf
+  - r-jsonlite
+  - r-dplyr
+  - r-argparse
+  - r-foreach
+  - r-dosnow
+  - r-pacman
+  - r-irkernel
+  - r-kernelshap
+  - r-shapviz
+  - r-pot
+  - r-rpart
+  - r-treeClust
