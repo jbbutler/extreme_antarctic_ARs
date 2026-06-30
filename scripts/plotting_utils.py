@@ -11,7 +11,8 @@ import numpy as np
 import pandas as pd
 
 def plot_variable_importance(importances, ax, title='', value_col='avg_importance_scaled', scale=100,
-    xlabel='Decrease in Predictive R$^{2}$, Scaled', xlim=(0, 115), normalize=False, tick_labels=None, label_fontsize=12):
+    xlabel='Decrease in Predictive R$^{2}$, Scaled', xlim=(0, 115), normalize=False, tick_labels=None,
+    label_fontsize=12, color=None, label_fmt='{:.2f}'):
     '''
     Plot scaled variable importance as a horizontal bar chart on a given axis.
     Inputs:
@@ -23,30 +24,42 @@ def plot_variable_importance(importances, ax, title='', value_col='avg_importanc
         xlabel (str): X-axis label.
         xlim (tuple or None): X-axis limits; pass None to let matplotlib auto-scale.
         normalize (bool): should we normalize by the highest permutation score?
-        tick_labels (list of str or None): Replacement y-tick labels (must match number of rows).
-            If None, the DataFrame index is used as-is.
+        tick_labels (list of str or None): Replacement labels, given in the SAME order as the
+            DataFrame index (reordered internally to match the sorted bars). If None, the
+            index is used as-is.
         label_fontsize (int): Font size for the bar value labels.
+        color (matplotlib color or None): Bar color (None = matplotlib default, matching
+            plot_shap_summary_bar).
+        label_fmt (str): Format string for the value annotation on each bar.
     Outputs
         matplotlib.axes.Axes
     '''
-    importances = importances.sort_values(value_col, ascending=False)
-    values = importances[value_col]
+    names = list(importances.index)
+    values = importances[value_col].to_numpy()
     if normalize:
-        values = values/values.max()
-    values = values.round(4)
-    values = values*scale
- 
-    sns.barplot(data=importances, y=importances.index,
-                x=values, ax=ax)
+        values = values / values.max()
+    values = np.round(values, 4)
+    values = values * scale
+
+    display = list(tick_labels) if tick_labels is not None else names
+    order = np.argsort(values)  # ascending -> largest at top with barh
+    vals = values[order]
+    labels = [display[i] for i in order]
+    y = np.arange(len(vals))
+
+    ax.barh(y, vals, color=color)
+    ax.set_yticks(y)
+    ax.set_yticklabels(labels)
     ax.set_title(title)
     ax.set_xlabel(xlabel)
     ax.set_ylabel('')
     if xlim is not None:
         ax.set_xlim(xlim)
-    ax.bar_label(ax.containers[0], padding=4, fontsize=label_fontsize)
-    if tick_labels is not None:
-        ax.set_yticks(range(len(tick_labels)))
-        ax.set_yticklabels(tick_labels)
+
+    for yi, v in zip(y, vals):
+        ax.text(v, yi, ' ' + label_fmt.format(v),
+                va='center', ha='left', fontsize=label_fontsize)
+
     return ax
  
 def plot_pdp_1d(grid, pdp_vals, ax, feature_values=None, title='', xlabel='',
@@ -203,8 +216,9 @@ def plot_shap_dependence(shap_values, feature_values, feature, ax, feature_names
     return ax
  
  
-def plot_shap_summary_bar(shap_values, ax, feature_names=None, tick_labels=None, sort=True,
-    xlabel='mean(|SHAP value|)', color=None, label_fmt='{:.3f}', label_fontsize=11, pad_frac=0.15):
+def plot_shap_summary_bar(shap_values, ax, feature_names=None, tick_labels=None, sort=True, title='',
+    xlabel='mean(|SHAP value|)', color=None, label_fmt='{:.3f}', label_fontsize=11, pad_frac=0.15,
+    normalize=False, scale=100):
     '''
     Global SHAP importance: mean absolute SHAP value per feature as a bar chart.
     Equivalent to shap.summary_plot(..., plot_type="bar") but takes the raw SHAP array
@@ -220,8 +234,13 @@ def plot_shap_summary_bar(shap_values, ax, feature_names=None, tick_labels=None,
         xlabel (str): X-axis label.
         color (matplotlib color or None): Bar color.
         label_fmt (str or None): Format string for the value annotation on each bar; pass
-            None to omit.
+            None to omit. Ignored when normalize=True (values are shown as whole numbers).
         label_fontsize (int): Font size for the bar value labels.
+        pad_frac (float): Fraction of the largest bar added as right-hand headroom so the
+            largest bar's value label isn't clipped.
+        normalize (bool): if True, express each bar as a fraction of the largest mean(|SHAP|),
+            multiplied by `scale`, and rounded to the nearest whole number.
+        scale (float): multiplier applied when normalize=True (e.g. 100 for a 0-100 scale).
     Outputs
         matplotlib.axes.Axes
     '''
@@ -235,28 +254,34 @@ def plot_shap_summary_bar(shap_values, ax, feature_names=None, tick_labels=None,
         names = list(feature_names)
         mean_abs = np.abs(sv).mean(axis=0)
 
-    mean_abs = np.round(mean_abs, 2)
- 
+    if normalize:
+        mean_abs = mean_abs / mean_abs.max()
+        mean_abs = np.round(mean_abs, 4)
+        mean_abs = mean_abs * scale
+    else:
+        mean_abs = np.round(mean_abs, 2)
+
     display = list(tick_labels) if tick_labels is not None else names
-    order = np.argsort(mean_abs)  # ascending -> largest at top with barh
+    order = np.argsort(mean_abs)
     if not sort:
         order = np.arange(len(mean_abs))
- 
+
     vals = mean_abs[order]
     labels = [display[i] for i in order]
     y = np.arange(len(vals))
- 
+
     ax.barh(y, vals, color=color)
     ax.set_yticks(y)
     ax.set_yticklabels(labels)
     ax.set_xlabel(xlabel)
-    ax.set_xlim(0, vals.max()*(1 + pad_frac))
- 
+    ax.set_title(title)
+    ax.set_xlim(0, vals.max() * (1 + pad_frac))
+
     if label_fmt is not None:
         for yi, v in zip(y, vals):
             ax.text(v, yi, ' ' + label_fmt.format(v),
                     va='center', ha='left', fontsize=label_fontsize)
- 
+
     return ax
  
  
