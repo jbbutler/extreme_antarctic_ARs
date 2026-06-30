@@ -89,7 +89,7 @@ def compute_pdp_2d(feature1, feature2, X_data, prediction_rule, extents=None, gr
             
     return grid1, grid2, pdp_matrix
 
-def get_permutation_importance(predict_func, X, y, metric_func, n_repeats=5, maximize=False):
+def get_permutation_importance(predict_func, X, y, metric_func, n_repeats=5, maximize=False, seed=None):
     '''
     Given a prediction rule, compute the importance of a feature by permuting the feature
         column repeatedly and computing the increase in test set error.
@@ -103,8 +103,11 @@ def get_permutation_importance(predict_func, X, y, metric_func, n_repeats=5, max
         n_repeats (int): the number of times to permute a particular feature
         maximize (boolean): whether it is desirable to maximize the metric_func
             (example: R2 we want to maximize)
+        seed (None or int): for reproducibility of random permutations
     '''
 
+    rng = np.random.default_rng(seed)
+    
     baseline_pred = predict_func(X)
     baseline_score = metric_func(baseline_pred, y)
 
@@ -115,7 +118,7 @@ def get_permutation_importance(predict_func, X, y, metric_func, n_repeats=5, max
         scores = []
         for _ in range(n_repeats):
             X_permuted = X.copy()     
-            X_permuted[feature] = np.random.permutation(X_permuted[feature])      
+            X_permuted[feature] = rng.permutation(X_permuted[feature].to_numpy())     
             perm_pred = predict_func(X_permuted)
             perm_score = metric_func(perm_pred, y)
             scores.append(perm_score)
