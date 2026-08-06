@@ -1,5 +1,12 @@
 # Linking Antarctic Atmospheric River Characteristics with their Landfalling Impacts: An Exploratory Analysis
 
+**Note about this branch: this branch recomputes results after correcting an SLP gradient calculation bug in artools.**
+
+**How this branch differs from the main branch:**
++ ONLY recomputes the SLP gradient column, all other columns from the old dataset remain the same.
++ Best fitting hyperparameters from the procedure on the old, incorrect dataset are reused to fit models.
++ Results are rerun and updated, so all results notebooks show outcomes of fitted models using hyperparams selected from the incorrect dataset, on the dataset with the corrected column.
+
 A project to investigate the associations between Antarctic atmospheric river characteristics and impacts on the Antarctic ice sheet.
 
 To reproduce the results of this work, you must first create this project's `conda` environment to access the relevant packages. There are two environments relevant for this work, one with `R` packages and one with `python` packages.
