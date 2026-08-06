@@ -28,3 +28,4 @@ dependencies:
     - jupyter-keepalive
     - mystmd
     - git+https://github.com/jbbutler/antarctic_AR_dataset.git # artools package
+    - ipywidgets
