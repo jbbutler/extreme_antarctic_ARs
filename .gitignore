@@ -2,7 +2,11 @@
 __pycache__
 
 # output files (pdf exports, plots, etc.)
-outputs/
+#outputs/
+
+outputs/data_products/full_dataset_clean.h5
+outputs/model_fitting/gbex/cross_validation/
+outputs/model_fitting/xgboost/cross_validation/
 
 # MyST build outputs
 _build
