@@ -6,6 +6,7 @@
 + ONLY recomputes the SLP gradient column, all other columns from the old dataset remain the same.
 + Best fitting hyperparameters from the procedure on the old, incorrect dataset are reused to fit models.
 + Results are rerun and updated, so all results notebooks show outcomes of fitted models using hyperparams selected from the incorrect dataset, on the dataset with the corrected column.
++ We also tweak the formatting of some of the plots as well, relative to the main branch. These notebooks will be ported to the main branch, but as the main branch is the official record, we will not migrate these notebooks until the hyperparameter selection procedure has been re-executed for the new dataset.
 
 A project to investigate the associations between Antarctic atmospheric river characteristics and impacts on the Antarctic ice sheet.
 
